@@ -22,7 +22,7 @@ const CONFIG = {
     
     // 文件上传配置
     FILE: {
-        MAX_SIZE: 10 * 1024 * 1024, // 10MB
+        MAX_SIZE: 80 * 1024 * 1024, // 10MB
         ALLOWED_TYPES: '*', // 允许所有类型
         CHUNK_SIZE: 1024 * 1024 // 1MB chunks (如果需要分片上传)
     },
