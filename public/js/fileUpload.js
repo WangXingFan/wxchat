@@ -17,15 +17,17 @@ const FileUpload = {
         const fileInput = document.getElementById('fileInput');
         const fileButton = document.getElementById('fileButton');
 
-        if (fileButton) {
+        if (fileButton && fileInput) {
             fileButton.addEventListener('click', () => {
                 fileInput.click();
             });
         }
 
-        fileInput.addEventListener('change', (e) => {
-            this.handleFileSelect(e.target.files);
-        });
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                this.handleFileSelect(e.target.files);
+            });
+        }
 
         // 全局拖拽事件
         document.addEventListener('dragenter', this.handleDragEnter.bind(this));
