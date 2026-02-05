@@ -1,4 +1,4 @@
-// 应用主入口文件 - 精简版（仅文件上传下载）
+// 应用主入口文件 - 支持文件和文本消息
 
 class FileTransferApp {
     constructor() {
@@ -26,8 +26,8 @@ class FileTransferApp {
             UI.init();
             FileUpload.init();
 
-            // 加载文件列表
-            await this.loadFiles();
+            // 加载消息列表
+            await this.loadMessages();
 
             // 标记为已初始化
             this.isInitialized = true;
@@ -37,25 +37,35 @@ class FileTransferApp {
         }
     }
 
-    // 加载文件列表
-    async loadFiles() {
+    // 加载消息列表（文本+文件混合）
+    async loadMessages() {
         try {
-            UI.showLoading('加载文件列表...');
-            const response = await API.getFiles();
+            UI.showLoading('加载消息列表...');
+            const response = await API.getMessages();
             if (response && response.success) {
-                UI.renderFiles(response.data || []);
+                UI.renderMessages(response.data || []);
             } else {
-                UI.showEmpty('暂无文件');
+                UI.showEmpty('暂无内容');
             }
         } catch (error) {
-            console.error('加载文件列表失败:', error);
+            console.error('加载消息列表失败:', error);
             UI.showEmpty('加载失败，请刷新重试');
         }
     }
 
-    // 刷新文件列表
+    // 刷新消息列表
+    async refreshMessages() {
+        await this.loadMessages();
+    }
+
+    // 加载文件列表（保留兼容）
+    async loadFiles() {
+        await this.loadMessages();
+    }
+
+    // 刷新文件列表（保留兼容）
     async refreshFiles() {
-        await this.loadFiles();
+        await this.loadMessages();
     }
 
     // 显示初始化错误

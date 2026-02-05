@@ -1,4 +1,4 @@
-// API 接口封装 - 精简版（仅文件上传下载）
+// API 接口封装 - 支持文件和文本消息
 
 const API = {
     // 通用请求方法
@@ -106,6 +106,54 @@ const API = {
         } catch (error) {
             console.error('获取文件列表失败:', error);
             return { success: false, data: [] };
+        }
+    },
+
+    // 获取消息列表（文本+文件混合）
+    async getMessages(limit = CONFIG.UI.FILE_LOAD_LIMIT, offset = 0) {
+        try {
+            const response = await this.get(CONFIG.API.ENDPOINTS.MESSAGES, {
+                limit,
+                offset
+            });
+            return response;
+        } catch (error) {
+            console.error('获取消息列表失败:', error);
+            return { success: false, data: [] };
+        }
+    },
+
+    // 发送文本消息
+    async sendMessage(content, deviceId) {
+        try {
+            if (!content || !content.trim()) {
+                throw new Error(CONFIG.ERRORS.MESSAGE_EMPTY);
+            }
+
+            const response = await this.post(CONFIG.API.ENDPOINTS.MESSAGES, {
+                content: content.trim(),
+                deviceId
+            });
+
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.error || CONFIG.ERRORS.MESSAGE_SEND_FAILED);
+            }
+        } catch (error) {
+            console.error('发送消息失败:', error);
+            throw error;
+        }
+    },
+
+    // 删除消息
+    async deleteMessage(id) {
+        try {
+            const response = await this.delete(`${CONFIG.API.ENDPOINTS.MESSAGES}/${id}`);
+            return response;
+        } catch (error) {
+            console.error('删除消息失败:', error);
+            throw error;
         }
     },
 

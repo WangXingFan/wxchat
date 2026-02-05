@@ -1,4 +1,4 @@
-// UI 操作和渲染 - 精简版（仅文件列表展示）
+// UI 操作和渲染 - 支持文件和文本消息
 
 const UI = {
     // DOM 元素缓存
@@ -13,12 +13,15 @@ const UI = {
     // 缓存DOM元素
     cacheElements() {
         this.elements = {
+            messageList: document.getElementById('messageList'),
             fileList: document.getElementById('fileList'),
             fileInput: document.getElementById('fileInput'),
             uploadStatus: document.getElementById('uploadStatus'),
             progressBar: document.getElementById('progressBar'),
             uploadButton: document.getElementById('uploadButton'),
-            refreshButton: document.getElementById('refreshButton')
+            refreshButton: document.getElementById('refreshButton'),
+            messageInput: document.getElementById('messageInput'),
+            sendButton: document.getElementById('sendButton')
         };
     },
 
@@ -27,17 +30,64 @@ const UI = {
         // 刷新按钮点击
         if (this.elements.refreshButton) {
             this.elements.refreshButton.addEventListener('click', () => {
-                if (window.app && window.app.refreshFiles) {
+                if (window.app && window.app.refreshMessages) {
+                    window.app.refreshMessages();
+                } else if (window.app && window.app.refreshFiles) {
                     window.app.refreshFiles();
+                }
+            });
+        }
+
+        // 发送按钮点击
+        if (this.elements.sendButton) {
+            this.elements.sendButton.addEventListener('click', () => {
+                this.handleSendMessage();
+            });
+        }
+
+        // 消息输入框回车发送
+        if (this.elements.messageInput) {
+            this.elements.messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.handleSendMessage();
                 }
             });
         }
     },
 
+    // 处理发送消息
+    async handleSendMessage() {
+        const input = this.elements.messageInput;
+        if (!input) return;
+
+        const content = input.value.trim();
+        if (!content) {
+            this.showError('请输入消息内容');
+            return;
+        }
+
+        try {
+            const deviceId = Utils.getDeviceId();
+            await API.sendMessage(content, deviceId);
+
+            // 清空输入框
+            input.value = '';
+
+            // 刷新消息列表
+            if (window.app && window.app.refreshMessages) {
+                await window.app.refreshMessages();
+            }
+        } catch (error) {
+            this.showError('发送失败: ' + error.message);
+        }
+    },
+
     // 显示加载状态
     showLoading(message = '加载中...') {
-        if (this.elements.fileList) {
-            this.elements.fileList.innerHTML = `
+        const listEl = this.elements.messageList || this.elements.fileList;
+        if (listEl) {
+            listEl.innerHTML = `
                 <div class="loading">
                     <div class="loading-spinner">⏳</div>
                     <span>${message}</span>
@@ -47,14 +97,152 @@ const UI = {
     },
 
     // 显示空状态
-    showEmpty(message = '暂无文件，上传一个吧！') {
-        if (this.elements.fileList) {
-            this.elements.fileList.innerHTML = `
+    showEmpty(message = '暂无内容，发送点什么吧！') {
+        const listEl = this.elements.messageList || this.elements.fileList;
+        if (listEl) {
+            listEl.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">📁</div>
+                    <div class="empty-icon">💬</div>
                     <p>${message}</p>
                 </div>
             `;
+        }
+    },
+
+    // 渲染消息列表（文本+文件混合）
+    renderMessages(messages) {
+        if (!messages || messages.length === 0) {
+            this.showEmpty();
+            return;
+        }
+
+        const html = messages.map(msg => this.renderMessageItem(msg)).join('');
+        const listEl = this.elements.messageList || this.elements.fileList;
+
+        if (listEl) {
+            listEl.innerHTML = html;
+        }
+    },
+
+    // 渲染单条消息
+    renderMessageItem(msg) {
+        if (msg.type === 'text') {
+            return this.renderTextMessage(msg);
+        } else if (msg.type === 'file') {
+            return this.renderFileMessage(msg);
+        }
+        return '';
+    },
+
+    // 渲染文本消息
+    renderTextMessage(msg) {
+        const time = Utils.formatTime(msg.timestamp);
+        const content = this.escapeHtml(msg.content || '');
+
+        return `
+            <div class="message-item text-message" data-id="${msg.id}">
+                <div class="message-content">
+                    <div class="message-text">${content}</div>
+                    <div class="message-meta">
+                        <span class="message-time">${time}</span>
+                    </div>
+                </div>
+                <div class="message-actions">
+                    <button class="copy-btn" onclick="UI.copyText('${this.escapeHtml(msg.content).replace(/'/g, "\\'")}')">
+                        📋 复制
+                    </button>
+                    <button class="delete-btn" onclick="UI.confirmDeleteMessage(${msg.id})">
+                        🗑️ 删除
+                    </button>
+                </div>
+            </div>
+        `;
+    },
+
+    // 渲染文件消息
+    renderFileMessage(msg) {
+        const fileIcon = Utils.getFileIcon(msg.mime_type, msg.file_name);
+        const fileSize = Utils.formatFileSize(msg.file_size);
+        const time = Utils.formatTime(msg.timestamp);
+        const isImage = Utils.isImageFile(msg.mime_type);
+        const safeId = this.createSafeId(msg.r2_key || '');
+
+        let imagePreview = '';
+        if (isImage && msg.r2_key) {
+            imagePreview = `
+                <div class="image-preview" id="preview-${safeId}">
+                    <div class="image-loading" id="loading-${safeId}">
+                        <div class="loading-spinner">⏳</div>
+                    </div>
+                    <img id="img-${safeId}" alt="${this.escapeHtml(msg.file_name)}"
+                         style="display: none; max-width: 200px; max-height: 150px; border-radius: 8px; margin-top: 8px;"
+                         onclick="UI.showImageModal('${msg.r2_key}', '${this.escapeHtml(msg.file_name)}')" />
+                </div>
+            `;
+
+            // 延迟加载图片
+            setTimeout(() => this.loadImageAsync(msg.r2_key, safeId), 100);
+        }
+
+        return `
+            <div class="message-item file-message" data-id="${msg.id}">
+                <div class="file-info">
+                    <div class="file-icon">${fileIcon}</div>
+                    <div class="file-details">
+                        <div class="file-name">${this.escapeHtml(msg.file_name || '未知文件')}</div>
+                        <div class="file-meta">
+                            <span class="file-size">${fileSize}</span>
+                            <span class="file-time">${time}</span>
+                        </div>
+                    </div>
+                </div>
+                ${imagePreview}
+                <div class="message-actions">
+                    <button class="download-btn" onclick="API.downloadFile('${msg.r2_key}', '${this.escapeHtml(msg.file_name)}')">
+                        ⬇️ 下载
+                    </button>
+                    <button class="delete-btn" onclick="UI.confirmDeleteMessage(${msg.id})">
+                        🗑️ 删除
+                    </button>
+                </div>
+            </div>
+        `;
+    },
+
+    // 复制文本到剪贴板
+    async copyText(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            this.showSuccess('已复制到剪贴板');
+        } catch (error) {
+            // 降级方案
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            this.showSuccess('已复制到剪贴板');
+        }
+    },
+
+    // 确认删除消息
+    async confirmDeleteMessage(id) {
+        if (confirm('确定要删除这条消息吗？此操作不可恢复。')) {
+            try {
+                const response = await API.deleteMessage(id);
+                if (response.success) {
+                    this.showSuccess('删除成功');
+                    // 刷新消息列表
+                    if (window.app && window.app.refreshMessages) {
+                        window.app.refreshMessages();
+                    }
+                } else {
+                    this.showError(response.error || '删除失败');
+                }
+            } catch (error) {
+                this.showError('删除失败: ' + error.message);
+            }
         }
     },
 

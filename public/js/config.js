@@ -5,6 +5,7 @@ const CONFIG = {
     API: {
         BASE_URL: '',
         ENDPOINTS: {
+            MESSAGES: '/api/messages',
             FILES: '/api/files',
             FILES_UPLOAD: '/api/files/upload',
             FILES_DOWNLOAD: '/api/files/download',
@@ -73,13 +74,16 @@ const CONFIG = {
         NETWORK: '网络连接失败，请检查网络',
         FILE_TOO_LARGE: '文件大小不能超过80MB',
         FILE_UPLOAD_FAILED: '文件上传失败',
-        LOAD_FILES_FAILED: '加载文件列表失败'
+        LOAD_FILES_FAILED: '加载文件列表失败',
+        MESSAGE_EMPTY: '消息内容不能为空',
+        MESSAGE_SEND_FAILED: '消息发送失败'
     },
 
     // 成功消息
     SUCCESS: {
         FILE_UPLOADED: '文件上传成功',
-        FILE_DELETED: '文件删除成功'
+        FILE_DELETED: '文件删除成功',
+        MESSAGE_SENT: '消息发送成功'
     }
 };
 

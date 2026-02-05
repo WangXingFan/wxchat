@@ -272,10 +272,19 @@ api.post('/files/upload', async (c) => {
         deviceId
       ).run()
 
+      const fileId = fileResult.meta.last_row_id
+
+      // 同时创建一条 file 类型的消息记录
+      const msgStmt = DB.prepare(`
+        INSERT INTO messages (type, file_id, device_id, status)
+        VALUES ('file', ?, ?, 'sent')
+      `)
+      await msgStmt.bind(fileId, deviceId).run()
+
       return c.json({
         success: true,
         data: {
-          fileId: fileResult.meta.last_row_id,
+          fileId: fileId,
           fileName: file.name,
           fileSize: file.size,
           r2Key: r2Key
@@ -347,6 +356,154 @@ api.get('/files/download/:r2Key', async (c) => {
       }
     })
   } catch (error) {
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500)
+  }
+})
+
+// 获取消息列表（文本+文件混合）
+api.get('/messages', async (c) => {
+  try {
+    const { DB } = c.env
+    const limit = parseInt(c.req.query('limit') || '50')
+    const offset = parseInt(c.req.query('offset') || '0')
+
+    // 查询消息，关联文件信息
+    const stmt = DB.prepare(`
+      SELECT
+        m.id,
+        m.type,
+        m.content,
+        m.device_id,
+        m.status,
+        CAST(strftime('%s', m.timestamp) AS INTEGER) * 1000 AS timestamp,
+        f.id AS file_id,
+        f.original_name AS file_name,
+        f.file_size,
+        f.mime_type,
+        f.r2_key,
+        f.download_count
+      FROM messages m
+      LEFT JOIN files f ON m.file_id = f.id
+      ORDER BY m.timestamp DESC
+      LIMIT ? OFFSET ?
+    `)
+
+    const countStmt = DB.prepare('SELECT COUNT(*) as total FROM messages')
+
+    const [result, countResult] = await Promise.all([
+      stmt.bind(limit, offset).all(),
+      countStmt.first()
+    ])
+
+    return c.json({
+      success: true,
+      data: result.results,
+      total: countResult.total,
+      limit,
+      offset
+    })
+  } catch (error) {
+    console.error('获取消息失败:', error)
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500)
+  }
+})
+
+// 发送文本消息
+api.post('/messages', async (c) => {
+  try {
+    const { DB } = c.env
+    const { content, deviceId } = await c.req.json()
+
+    if (!content || !content.trim()) {
+      return c.json({
+        success: false,
+        error: '消息内容不能为空'
+      }, 400)
+    }
+
+    if (!deviceId) {
+      return c.json({
+        success: false,
+        error: '设备ID不能为空'
+      }, 400)
+    }
+
+    const stmt = DB.prepare(`
+      INSERT INTO messages (type, content, device_id, status)
+      VALUES ('text', ?, ?, 'sent')
+    `)
+
+    const result = await stmt.bind(content.trim(), deviceId).run()
+
+    return c.json({
+      success: true,
+      data: {
+        id: result.meta.last_row_id,
+        type: 'text',
+        content: content.trim(),
+        device_id: deviceId,
+        timestamp: Date.now()
+      }
+    })
+  } catch (error) {
+    console.error('发送消息失败:', error)
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500)
+  }
+})
+
+// 删除消息
+api.delete('/messages/:id', async (c) => {
+  try {
+    const { DB, R2 } = c.env
+    const id = c.req.param('id')
+
+    // 获取消息信息
+    const stmt = DB.prepare('SELECT * FROM messages WHERE id = ?')
+    const message = await stmt.bind(id).first()
+
+    if (!message) {
+      return c.json({
+        success: false,
+        error: '消息不存在'
+      }, 404)
+    }
+
+    // 如果是文件消息，同时删除文件
+    if (message.type === 'file' && message.file_id) {
+      const fileStmt = DB.prepare('SELECT r2_key FROM files WHERE id = ?')
+      const file = await fileStmt.bind(message.file_id).first()
+
+      if (file) {
+        try {
+          await R2.delete(file.r2_key)
+        } catch (r2Error) {
+          console.error('R2删除失败:', r2Error)
+        }
+
+        const deleteFileStmt = DB.prepare('DELETE FROM files WHERE id = ?')
+        await deleteFileStmt.bind(message.file_id).run()
+      }
+    }
+
+    // 删除消息记录
+    const deleteStmt = DB.prepare('DELETE FROM messages WHERE id = ?')
+    await deleteStmt.bind(id).run()
+
+    return c.json({
+      success: true,
+      message: '消息已删除'
+    })
+  } catch (error) {
+    console.error('删除消息失败:', error)
     return c.json({
       success: false,
       error: error.message
