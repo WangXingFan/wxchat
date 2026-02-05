@@ -182,10 +182,10 @@ api.get('/files', async (c) => {
         mime_type,
         r2_key,
         upload_device_id,
-        upload_time,
+        CAST(strftime('%s', created_at) AS INTEGER) * 1000 AS upload_time,
         download_count
       FROM files
-      ORDER BY upload_time DESC
+      ORDER BY created_at DESC
       LIMIT ? OFFSET ?
     `)
 
@@ -398,22 +398,31 @@ api.delete('/files/:r2Key', async (c) => {
 app.route('/api/auth', authApi)
 
 // 应用鉴权中间件到所有路由
-app.use('*', authMiddleware)
+api.use('*', authMiddleware)
 
 // 挂载API路由（需要认证）
 app.route('/api', api)
 
 // 静态文件服务 - 使用getAssetFromKV
 app.get('*', async (c) => {
+  if (c.env.ASSETS && typeof c.env.ASSETS.fetch === 'function') {
+    const response = await c.env.ASSETS.fetch(c.req.raw)
+    if (response.status !== 404) {
+      return response
+    }
+
+    return c.env.ASSETS.fetch(new Request(new URL('/index.html', c.req.url).toString(), c.req.raw))
+  }
+
   try {
-    return await getAssetFromKV(c.env, {
+    return await getAssetFromKV({
       request: c.req.raw,
       waitUntil: c.executionCtx.waitUntil.bind(c.executionCtx),
     })
   } catch (e) {
     // 如果找不到文件，返回index.html
     try {
-      return await getAssetFromKV(c.env, {
+      return await getAssetFromKV({
         request: new Request(new URL('/index.html', c.req.url).toString()),
         waitUntil: c.executionCtx.waitUntil.bind(c.executionCtx),
       })

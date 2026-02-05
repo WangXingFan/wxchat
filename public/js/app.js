@@ -111,6 +111,7 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 // 导出到全局作用域
+window.app = app;
 window.FileTransferApp = app;
 window.CONFIG = CONFIG;
 window.Utils = Utils;
