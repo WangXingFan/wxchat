@@ -2,101 +2,237 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>登录 - 微信文件传输助手</title>
-    
-    <!-- iOS Safari 优化 -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="微信文件传输助手">
-    <meta name="format-detection" content="telephone=no">
-    
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="./manifest.json">
-
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
-    <link rel="icon" type="image/png" sizes="32x32" href="./icons/ios/32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="./icons/ios/16.png">
-
-    <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" sizes="180x180" href="./icons/ios/180.png">
-
-    <!-- PWA Meta Tags -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>登录 - 文件传输助手</title>
     <meta name="theme-color" content="#07c160">
-    <meta name="background-color" content="#ffffff">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📁</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    <meta name="description" content="微信文件传输助手 - 安全登录">
-    <meta name="keywords" content="文件传输,微信,登录,安全,PWA">
-    
-    <!-- 样式文件 -->
-    <link rel="stylesheet" href="./css/reset.css">
-    <link rel="stylesheet" href="./css/auth.css">
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 400px;
+            padding: 40px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .login-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .login-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .login-subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .password-wrapper {
+            position: relative;
+            display: flex;
+        }
+
+        .form-input {
+            flex: 1;
+            padding: 14px 50px 14px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+
+        .form-input:focus {
+            border-color: #07c160;
+            box-shadow: 0 0 0 3px rgba(7, 193, 96, 0.1);
+        }
+
+        .form-input:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .login-button {
+            width: 100%;
+            padding: 16px;
+            background: #07c160;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .login-button:hover {
+            background: #06ad56;
+        }
+
+        .login-button:active {
+            transform: scale(0.98);
+        }
+
+        .login-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .login-button.loading {
+            position: relative;
+            color: transparent;
+        }
+
+        .login-button.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid white;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            display: none;
+        }
+
+        #errorMessage {
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+
+        #warningMessage {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            color: #faad14;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 12px;
+            color: #999;
+        }
+
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 32px 24px;
+            }
+
+            .login-icon {
+                font-size: 48px;
+            }
+
+            .login-title {
+                font-size: 20px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div class="auth-container">
-        <div class="auth-card">
-            <!-- 应用图标 -->
-            <div class="auth-icon">
-                <img src="./icons/icon.svg" alt="微信文件传输助手" class="auth-icon-img">
-            </div>
-            
-            <!-- 标题 -->
-            <h1 class="auth-title">微信文件传输助手</h1>
-            <p class="auth-subtitle">请输入访问密码以继续使用</p>
-            
-            <!-- 登录表单 -->
-            <form class="auth-form" id="loginForm">
-                <div class="auth-input-group">
-                    <input 
-                        type="password" 
-                        id="passwordInput" 
-                        class="auth-input" 
-                        placeholder="请输入访问密码"
+    <div class="login-container">
+        <div class="login-header">
+            <div class="login-icon">📁</div>
+            <h1 class="login-title">文件传输助手</h1>
+            <p class="login-subtitle">请输入访问密码</p>
+        </div>
+
+        <form id="loginForm">
+            <div id="errorMessage" class="message"></div>
+            <div id="warningMessage" class="message"></div>
+
+            <div class="form-group">
+                <label class="form-label" for="passwordInput">访问密码</label>
+                <div class="password-wrapper">
+                    <input
+                        type="password"
+                        id="passwordInput"
+                        class="form-input"
+                        placeholder="请输入密码"
                         autocomplete="current-password"
-                        required
                     >
-                    <button type="button" class="password-toggle" id="passwordToggle">
-                        👁️
-                    </button>
+                    <button type="button" id="passwordToggle" class="password-toggle">👁️</button>
                 </div>
-                
-                <button type="submit" class="auth-button" id="loginButton">
-                    登录
-                </button>
-            </form>
-            
-            <!-- 错误消息 -->
-            <div class="auth-error" id="errorMessage" style="display: none;"></div>
-            
-            <!-- 警告消息 -->
-            <div class="auth-warning" id="warningMessage" style="display: none;"></div>
-            
-            <!-- 帮助信息 -->
-            <div class="auth-help">
-                <p>🔒 为了保护您的隐私，本应用需要密码验证</p>
-                <p>💡 如果忘记密码，请在Cloudflare控制台重新设置</p>
             </div>
-            
-            <!-- 安全提示 -->
-            <div class="security-tips">
-                <strong>🛡️ 安全提示：</strong>
-                <ul>
-                    <li>请勿在公共设备上保存密码</li>
-                    <li>建议定期更换访问密码</li>
-                    <li>密码可在Cloudflare控制台随时修改</li>
-                </ul>
-            </div>
+
+            <button type="submit" id="loginButton" class="login-button">
+                登 录
+            </button>
+        </form>
+
+        <div class="footer">
+            多平台文件传输工具
         </div>
     </div>
 
-    <!-- JavaScript -->
-    <script src="./js/config.js"></script>
-    <script src="./js/utils.js"></script>
     <script src="./js/auth.js"></script>
-    
     <script>
-        // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', () => {
             Auth.initLoginPage();
         });

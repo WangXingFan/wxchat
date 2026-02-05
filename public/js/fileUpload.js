@@ -1,4 +1,4 @@
-// 文件上传处理
+// 文件上传处理 - 精简版
 
 const FileUpload = {
     // 拖拽状态
@@ -17,14 +17,12 @@ const FileUpload = {
         const fileInput = document.getElementById('fileInput');
         const fileButton = document.getElementById('fileButton');
 
-        // 点击文件按钮
         if (fileButton) {
             fileButton.addEventListener('click', () => {
                 fileInput.click();
             });
         }
 
-        // 文件选择（支持多文件）
         fileInput.addEventListener('change', (e) => {
             this.handleFileSelect(e.target.files);
         });
@@ -35,11 +33,10 @@ const FileUpload = {
         document.addEventListener('dragleave', this.handleDragLeave.bind(this));
         document.addEventListener('drop', this.handleDrop.bind(this));
 
-        // 阻止浏览器默认的拖拽行为
         document.addEventListener('dragover', (e) => e.preventDefault());
         document.addEventListener('drop', (e) => e.preventDefault());
     },
-    
+
     // 创建拖拽覆盖层
     createDragOverlay() {
         const overlay = document.createElement('div');
@@ -58,16 +55,11 @@ const FileUpload = {
     // 设置剪贴板监听
     setupClipboardListener() {
         document.addEventListener('paste', this.handlePaste.bind(this));
-
-        // 添加键盘快捷键提示
-        this.addKeyboardHints();
     },
 
-    // 处理文件选择（支持多文件）
+    // 处理文件选择
     async handleFileSelect(files) {
         if (!files || files.length === 0) return;
-
-        // 批量上传文件
         await this.uploadMultipleFiles(Array.from(files));
     },
 
@@ -75,12 +67,9 @@ const FileUpload = {
     handleDragEnter(e) {
         e.preventDefault();
         e.stopPropagation();
-
         this.dragCounter++;
-
         if (e.dataTransfer.types.includes('Files')) {
             this.showDragOverlay();
-            this.updateDragOverlayContent(e.dataTransfer.items);
         }
     },
 
@@ -88,7 +77,6 @@ const FileUpload = {
     handleDragOver(e) {
         e.preventDefault();
         e.stopPropagation();
-
         if (e.dataTransfer.types.includes('Files')) {
             e.dataTransfer.dropEffect = 'copy';
         }
@@ -98,9 +86,7 @@ const FileUpload = {
     handleDragLeave(e) {
         e.preventDefault();
         e.stopPropagation();
-
         this.dragCounter--;
-
         if (this.dragCounter === 0) {
             this.hideDragOverlay();
         }
@@ -110,14 +96,11 @@ const FileUpload = {
     handleDrop(e) {
         e.preventDefault();
         e.stopPropagation();
-
         this.dragCounter = 0;
         this.hideDragOverlay();
 
         const files = e.dataTransfer.files;
         if (files.length > 0) {
-            // 显示放下动画
-            this.showDropAnimation();
             this.handleFileSelect(files);
         }
     },
@@ -128,38 +111,24 @@ const FileUpload = {
         if (!items) return;
 
         const files = [];
-        let hasFiles = false;
-
         for (let i = 0; i < items.length; i++) {
-            const item = items[i];
-
-            if (item.kind === 'file') {
-                const file = item.getAsFile();
-                if (file) {
-                    files.push(file);
-                    hasFiles = true;
-                }
+            if (items[i].kind === 'file') {
+                const file = items[i].getAsFile();
+                if (file) files.push(file);
             }
         }
 
-        if (hasFiles) {
+        if (files.length > 0) {
             e.preventDefault();
-
-            // 显示粘贴提示
-            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-            const shortcut = isMac ? 'Cmd+V' : 'Ctrl+V';
-            UI.showKeyboardHint(`📋 检测到 ${shortcut} 粘贴了 ${files.length} 个文件`, 2000);
-
             await this.uploadMultipleFiles(files);
         }
     },
-    
+
     // 显示拖拽覆盖层
     showDragOverlay() {
         const overlay = document.getElementById('dragOverlay');
         if (overlay) {
             overlay.classList.add('active');
-            document.body.classList.add('dragging');
             this.isDragging = true;
         }
     },
@@ -169,161 +138,23 @@ const FileUpload = {
         const overlay = document.getElementById('dragOverlay');
         if (overlay) {
             overlay.classList.remove('active');
-            document.body.classList.remove('dragging');
             this.isDragging = false;
         }
-    },
-
-    // 更新拖拽覆盖层内容 - 支持文件类型图标显示
-    updateDragOverlayContent(dataTransferItems) {
-        const overlay = document.getElementById('dragOverlay');
-        if (!overlay) return;
-
-        const dragIcon = overlay.querySelector('.drag-icon');
-        const dragText = overlay.querySelector('.drag-text');
-        const dragHint = overlay.querySelector('.drag-hint');
-
-        if (!dataTransferItems || dataTransferItems.length === 0) {
-            dragIcon.textContent = '📁';
-            dragText.textContent = '拖拽文件到此处上传';
-            dragHint.textContent = '支持多文件同时上传';
-            return;
-        }
-
-        const fileCount = dataTransferItems.length;
-
-        // 获取文件信息并显示相应图标
-        const fileIcons = [];
-        const fileTypes = new Set();
-
-        for (let i = 0; i < Math.min(dataTransferItems.length, 3); i++) {
-            const item = dataTransferItems[i];
-            if (item.kind === 'file') {
-                // 尝试从MIME类型获取图标
-                let icon = Utils.getFileIcon(item.type);
-
-                // 如果没有MIME类型，尝试从文件名获取
-                if (icon === CONFIG.FILE_ICONS.default && item.getAsFile) {
-                    const file = item.getAsFile();
-                    if (file && file.name) {
-                        icon = Utils.getFileIconByName(file.name);
-                    }
-                }
-
-                fileIcons.push(icon);
-                fileTypes.add(this.getFileTypeCategory(item.type, item.getAsFile?.()?.name));
-            }
-        }
-
-        // 显示图标
-        if (fileIcons.length === 1) {
-            dragIcon.textContent = fileIcons[0];
-        } else if (fileIcons.length > 1) {
-            // 多文件时显示前几个图标
-            dragIcon.innerHTML = fileIcons.slice(0, 3).join(' ');
-        } else {
-            dragIcon.textContent = '📁';
-        }
-
-        // 更新文本
-        if (fileCount > 1) {
-            const typeText = fileTypes.size === 1 ?
-                Array.from(fileTypes)[0] : '多种类型';
-            dragText.textContent = `拖拽 ${fileCount} 个${typeText}文件到此处上传`;
-            dragHint.textContent = '支持批量上传';
-        } else {
-            const typeText = fileTypes.size > 0 ? Array.from(fileTypes)[0] : '';
-            dragText.textContent = `拖拽${typeText}文件到此处上传`;
-            dragHint.textContent = '支持多文件同时上传';
-        }
-    },
-
-    // 获取文件类型分类（用于显示友好的类型名称）
-    getFileTypeCategory(mimeType, fileName) {
-        if (mimeType) {
-            if (mimeType.startsWith('image/')) return '图片';
-            if (mimeType.startsWith('video/')) return '视频';
-            if (mimeType.startsWith('audio/')) return '音频';
-            if (mimeType.includes('pdf')) return 'PDF';
-            if (mimeType.includes('word') || mimeType.includes('document')) return '文档';
-            if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '表格';
-            if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '演示';
-            if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('compressed')) return '压缩';
-            if (mimeType.startsWith('text/')) return '文本';
-        }
-
-        if (fileName) {
-            const ext = Utils.getFileExtension(fileName);
-            if (ext) {
-                if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(ext)) return '图片';
-                if (['mp4', 'avi', 'mov', 'wmv', 'mkv', 'flv'].includes(ext)) return '视频';
-                if (['mp3', 'wav', 'aac', 'flac', 'ogg'].includes(ext)) return '音频';
-                if (['pdf'].includes(ext)) return 'PDF';
-                if (['doc', 'docx'].includes(ext)) return '文档';
-                if (['xls', 'xlsx'].includes(ext)) return '表格';
-                if (['ppt', 'pptx'].includes(ext)) return '演示';
-                if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '压缩';
-                if (['txt', 'md', 'html', 'css', 'js', 'json'].includes(ext)) return '文本';
-            }
-        }
-
-        return '';
-    },
-
-    // 显示放下动画
-    showDropAnimation() {
-        const overlay = document.getElementById('dragOverlay');
-        if (overlay) {
-            const content = overlay.querySelector('.drag-content');
-            content.style.transform = 'scale(1.1)';
-            content.style.background = '#e8f5e8';
-
-            setTimeout(() => {
-                content.style.transform = 'scale(1)';
-                content.style.background = 'white';
-            }, 200);
-        }
-    },
-
-    // 添加键盘快捷键提示（已禁用）
-    addKeyboardHints() {
-        // 所有文件上传提示已禁用，保持界面简洁
-        return;
     },
 
     // 批量上传文件
     async uploadMultipleFiles(files) {
         if (!files || files.length === 0) return;
 
-        // 验证所有文件
-        const validFiles = [];
-        const invalidFiles = [];
+        const validFiles = files.filter(file => this.validateFile(file));
 
-        for (const file of files) {
-            if (this.validateFile(file)) {
-                validFiles.push(file);
-            } else {
-                invalidFiles.push(file);
-            }
+        if (validFiles.length === 0) {
+            UI.showError('文件过大或格式不支持');
+            return;
         }
 
-        // 显示无效文件警告
-        if (invalidFiles.length > 0) {
-            const reasons = invalidFiles.map(f => {
-                if (!Utils.validateFileSize(f.size)) {
-                    return `${f.name} (文件过大)`;
-                }
-                return `${f.name} (不支持的格式)`;
-            });
-            UI.showError(`以下文件无法上传：${reasons.join(', ')}`);
-        }
-
-        if (validFiles.length === 0) return;
-
-        // 显示批量上传状态
         this.showBatchUploadStatus(validFiles.length);
 
-        // 逐个上传文件
         let successCount = 0;
         let failCount = 0;
 
@@ -337,16 +168,15 @@ const FileUpload = {
             }
         }
 
-        // 隐藏上传状态
         this.hideBatchUploadStatus();
 
-        // 显示结果
         if (successCount > 0) {
             UI.showSuccess(`成功上传 ${successCount} 个文件`);
-
-            // 添加延迟确保数据库写入完成
+            // 刷新文件列表
             setTimeout(async () => {
-                await MessageHandler.loadMessages(true); // 强制滚动到底部
+                if (window.app && window.app.refreshFiles) {
+                    await window.app.refreshFiles();
+                }
             }, 500);
         }
 
@@ -354,18 +184,14 @@ const FileUpload = {
             UI.showError(`${failCount} 个文件上传失败`);
         }
 
-        // 清空文件输入
         this.clearFileInput();
     },
 
     // 上传单个文件
     async uploadSingleFile(file, current, total) {
         const deviceId = Utils.getDeviceId();
-
-        // 更新当前上传进度显示
         this.updateBatchProgress(file.name, current, total);
 
-        // 上传文件（带进度）
         const result = await API.uploadFile(file, deviceId, (progress) => {
             this.updateFileProgress(progress);
         });
@@ -375,19 +201,8 @@ const FileUpload = {
 
     // 验证单个文件
     validateFile(file) {
-        // 验证文件大小
-        if (!Utils.validateFileSize(file.size)) {
-            return false;
-        }
-
-        // 验证文件类型（如果需要）
-        if (!this.validateFileType(file)) {
-            return false;
-        }
-
-        return true;
+        return Utils.validateFileSize(file.size);
     },
-    
 
     // 显示批量上传状态
     showBatchUploadStatus(fileCount) {
@@ -417,17 +232,12 @@ const FileUpload = {
         }
     },
 
-    // 更新批量上传进度 - 显示文件图标
+    // 更新批量上传进度
     updateBatchProgress(fileName, current, total) {
         const currentElement = document.getElementById('uploadCurrent');
         if (currentElement) {
-            // 获取文件图标
             const fileIcon = Utils.getFileIconByName(fileName);
-
-            // 截断长文件名
-            const displayName = fileName.length > 30 ?
-                fileName.substring(0, 27) + '...' : fileName;
-
+            const displayName = fileName.length > 30 ? fileName.substring(0, 27) + '...' : fileName;
             currentElement.innerHTML = `正在上传: ${fileIcon} ${displayName} (${current}/${total})`;
         }
     },
@@ -445,38 +255,15 @@ const FileUpload = {
         const fileInput = document.getElementById('fileInput');
         if (fileInput) {
             fileInput.value = '';
-            // 确保支持多文件选择
             if (!fileInput.hasAttribute('multiple')) {
                 fileInput.setAttribute('multiple', 'true');
             }
         }
-    },
-
-    // 验证文件类型（如果需要限制）
-    validateFileType(file) {
-        // 目前允许所有文件类型
-        return true;
-    },
-
-    // 获取文件预览（如果是图片）
-    getFilePreview(file) {
-        return new Promise((resolve) => {
-            if (!Utils.isImageFile(file.type)) {
-                resolve(null);
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = () => resolve(null);
-            reader.readAsDataURL(file);
-        });
     }
 };
 
-// 添加拖拽和上传相关样式
+// 添加拖拽相关样式
 const uploadStyles = `
-    /* 拖拽覆盖层 */
     .drag-overlay {
         position: fixed;
         top: 0;
@@ -507,24 +294,11 @@ const uploadStyles = `
         padding: 3rem;
         text-align: center;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        transform: scale(0.9);
-        transition: transform 0.2s ease;
-    }
-
-    .drag-overlay.active .drag-content {
-        transform: scale(1);
     }
 
     .drag-icon {
         font-size: 4rem;
         margin-bottom: 1rem;
-        animation: bounce 1s infinite;
-        line-height: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        flex-wrap: wrap;
     }
 
     .drag-text {
@@ -539,19 +313,6 @@ const uploadStyles = `
         color: #666;
     }
 
-    @keyframes bounce {
-        0%, 20%, 50%, 80%, 100% {
-            transform: translateY(0);
-        }
-        40% {
-            transform: translateY(-10px);
-        }
-        60% {
-            transform: translateY(-5px);
-        }
-    }
-
-    /* 改进的上传状态 */
     .upload-status {
         background: #f8f9fa;
         border: 1px solid #e9ecef;
@@ -566,6 +327,11 @@ const uploadStyles = `
     .upload-spinner {
         font-size: 1.2rem;
         animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
     }
 
     .upload-info {
@@ -601,90 +367,8 @@ const uploadStyles = `
         transition: width 0.3s ease;
         border-radius: 4px;
     }
-
-    /* 文件按钮增强 */
-    .file-button {
-        position: relative;
-        overflow: hidden;
-    }
-
-    .file-button::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(7, 193, 96, 0.1);
-        opacity: 0;
-        transition: opacity 0.2s ease;
-    }
-
-    .file-button:hover::after {
-        opacity: 1;
-    }
-
-    /* 键盘快捷键提示 */
-    .keyboard-hint {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background: rgba(0, 0, 0, 0.85);
-        color: white;
-        padding: 0.75rem 1.25rem;
-        border-radius: 12px;
-        font-size: 0.85rem;
-        opacity: 0;
-        transform: translateY(20px);
-        transition: all 0.3s ease;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        backdrop-filter: blur(10px);
-        max-width: 300px;
-        text-align: center;
-    }
-
-    .keyboard-hint.show {
-        opacity: 1;
-        transform: translateY(0);
-    }
-
-    /* 改进消息列表在拖拽时的样式 */
-    .message-list {
-        transition: all 0.2s ease;
-    }
-
-    body.dragging .message-list {
-        filter: brightness(0.95);
-        transform: scale(0.98);
-    }
-
-    /* 文件按钮悬停效果 */
-    .file-button {
-        transition: all 0.2s ease;
-    }
-
-    .file-button:hover {
-        transform: scale(1.05);
-        background-color: rgba(7, 193, 96, 0.1);
-    }
-
-    /* 上传状态动画 */
-    @keyframes uploadPulse {
-        0%, 100% {
-            opacity: 1;
-        }
-        50% {
-            opacity: 0.7;
-        }
-    }
-
-    .upload-status {
-        animation: uploadPulse 2s ease-in-out infinite;
-    }
 `;
 
-// 动态添加样式
 const styleSheet = document.createElement('style');
 styleSheet.textContent = uploadStyles;
 document.head.appendChild(styleSheet);
