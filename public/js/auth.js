@@ -274,7 +274,8 @@ const Auth = {
 
     // 跳转到应用
     redirectToApp() {
-        window.location.href = '/';
+        // 强制刷新页面，避免缓存问题
+        window.location.href = '/?t=' + Date.now();
     },
 
     // 检查认证状态

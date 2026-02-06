@@ -24,35 +24,35 @@
     <style>
         /* ===== Glassmorphism Design System ===== */
         :root {
-            /* Primary Colors - Vibrant Gradient */
-            --color-primary: #667eea;
-            --color-primary-hover: #5a67d8;
-            --color-primary-light: rgba(102, 126, 234, 0.15);
-            --color-secondary: #764ba2;
-            --color-accent: #f093fb;
+            /* Primary Colors - Teal/Cyan Gradient */
+            --color-primary: #00b894;
+            --color-primary-hover: #00a085;
+            --color-primary-light: rgba(0, 184, 148, 0.15);
+            --color-secondary: #00cec9;
+            --color-accent: #81ecec;
 
             /* Semantic Colors */
             --color-danger: #ff6b6b;
             --color-danger-hover: #ee5a5a;
-            --color-success: #51cf66;
-            --color-warning: #ffd43b;
-            --color-info: #74c0fc;
+            --color-success: #00b894;
+            --color-warning: #fdcb6e;
+            --color-info: #74b9ff;
 
             /* Text Colors */
-            --color-text: #1a1a2e;
-            --color-text-secondary: #4a4a68;
-            --color-text-muted: #8b8ba7;
+            --color-text: #2d3436;
+            --color-text-secondary: #636e72;
+            --color-text-muted: #b2bec3;
             --color-text-light: #fff;
 
             /* Glass Effect Colors */
             --glass-bg: rgba(255, 255, 255, 0.25);
             --glass-bg-strong: rgba(255, 255, 255, 0.4);
             --glass-border: rgba(255, 255, 255, 0.3);
-            --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+            --glass-shadow: 0 8px 32px rgba(0, 184, 148, 0.15);
 
-            /* Background Gradient */
-            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            --bg-gradient-soft: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            /* Background Gradient - Teal/Cyan */
+            --bg-gradient: linear-gradient(135deg, #00b894 0%, #00cec9 50%, #81ecec 100%);
+            --bg-gradient-soft: linear-gradient(135deg, #dfe6e9 0%, #b2bec3 100%);
 
             /* Spacing & Radius */
             --radius-sm: 8px;
@@ -65,7 +65,7 @@
             --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
             --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
             --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.16);
-            --shadow-glow: 0 0 40px rgba(102, 126, 234, 0.3);
+            --shadow-glow: 0 0 40px rgba(0, 184, 148, 0.3);
 
             /* Transitions */
             --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -110,7 +110,7 @@
         body::before {
             width: 600px;
             height: 600px;
-            background: rgba(102, 126, 234, 0.4);
+            background: rgba(0, 184, 148, 0.4);
             top: -200px;
             left: -200px;
         }
@@ -118,7 +118,7 @@
         body::after {
             width: 500px;
             height: 500px;
-            background: rgba(240, 147, 251, 0.4);
+            background: rgba(129, 236, 236, 0.4);
             bottom: -150px;
             right: -150px;
             animation-delay: -10s;
@@ -394,23 +394,23 @@
         .download-btn {
             background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
             color: #fff;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 15px rgba(0, 184, 148, 0.4);
         }
 
         .download-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+            box-shadow: 0 6px 20px rgba(0, 184, 148, 0.5);
         }
 
         .copy-btn {
-            background: linear-gradient(135deg, var(--color-info), #4dabf7);
+            background: linear-gradient(135deg, var(--color-info), #0984e3);
             color: #fff;
-            box-shadow: 0 4px 15px rgba(116, 192, 252, 0.4);
+            box-shadow: 0 4px 15px rgba(116, 185, 255, 0.4);
         }
 
         .copy-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(116, 192, 252, 0.5);
+            box-shadow: 0 6px 20px rgba(116, 185, 255, 0.5);
         }
 
         .delete-btn {
@@ -485,7 +485,7 @@
             cursor: pointer;
             transition: all var(--transition-fast);
             white-space: nowrap;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 15px rgba(0, 184, 148, 0.4);
             position: relative;
             overflow: hidden;
         }
@@ -507,7 +507,7 @@
 
         .send-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+            box-shadow: 0 6px 25px rgba(0, 184, 148, 0.5);
         }
 
         .send-btn:active {
