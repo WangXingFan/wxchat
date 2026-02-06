@@ -238,7 +238,7 @@ const FileUpload = {
     }
 };
 
-// Drag overlay & upload progress styles
+// Drag overlay & upload progress styles - Glassmorphism
 const uploadStyles = `
     .drag-overlay {
         position: fixed;
@@ -246,15 +246,16 @@ const uploadStyles = `
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(7, 193, 96, 0.08);
-        backdrop-filter: blur(3px);
+        background: rgba(102, 126, 234, 0.15);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
         z-index: 9999;
         display: flex;
         align-items: center;
         justify-content: center;
         opacity: 0;
         visibility: hidden;
-        transition: all 0.2s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         pointer-events: none;
     }
 
@@ -264,46 +265,67 @@ const uploadStyles = `
     }
 
     .drag-content {
-        background: #fff;
-        border: 2px dashed #07c160;
-        border-radius: 20px;
-        padding: 2.5rem 3rem;
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 2px dashed rgba(102, 126, 234, 0.6);
+        border-radius: 24px;
+        padding: 3rem 4rem;
         text-align: center;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15), 0 0 40px rgba(102, 126, 234, 0.2);
+        animation: dragPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes dragPulse {
+        0%, 100% { transform: scale(1); border-color: rgba(102, 126, 234, 0.6); }
+        50% { transform: scale(1.02); border-color: rgba(118, 75, 162, 0.8); }
     }
 
     .drag-icon {
-        font-size: 3rem;
-        margin-bottom: 0.75rem;
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+        animation: bounce 2s ease-in-out infinite;
+    }
+
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
     }
 
     .drag-text {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #07c160;
-        margin-bottom: 0.25rem;
+        font-size: 1.4rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.5rem;
     }
 
     .drag-hint {
-        font-size: 0.875rem;
-        color: #999;
+        font-size: 0.9rem;
+        color: #8b8ba7;
     }
 
     #uploadStatus {
-        background: #f7f7f7;
-        border: 1px solid #e6e6e6;
-        border-radius: 10px;
-        padding: 0.75rem;
-        margin-bottom: 0.5rem;
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 16px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
         align-items: center;
-        gap: 0.75rem;
+        gap: 1rem;
+        box-shadow: 0 4px 16px rgba(31, 38, 135, 0.1);
     }
 
     .upload-spinner {
-        width: 20px;
-        height: 20px;
-        border: 2px solid #e6e6e6;
-        border-top-color: #07c160;
+        width: 24px;
+        height: 24px;
+        border: 3px solid rgba(102, 126, 234, 0.2);
+        border-top-color: #667eea;
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
         flex-shrink: 0;
@@ -320,37 +342,38 @@ const uploadStyles = `
 
     .upload-text {
         font-weight: 600;
-        color: #1a1a1a;
-        font-size: 13px;
-        margin-bottom: 2px;
+        color: #1a1a2e;
+        font-size: 14px;
+        margin-bottom: 4px;
     }
 
     .upload-current {
         font-size: 12px;
-        color: #666;
+        color: #8b8ba7;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
     .upload-progress {
-        width: 120px;
+        width: 140px;
         flex-shrink: 0;
     }
 
     .progress-bar {
         width: 100%;
-        height: 6px;
-        background-color: #e6e6e6;
-        border-radius: 3px;
+        height: 8px;
+        background: rgba(102, 126, 234, 0.15);
+        border-radius: 4px;
         overflow: hidden;
     }
 
     .progress-fill {
         height: 100%;
-        background: linear-gradient(90deg, #07c160, #06ad56);
-        transition: width 0.3s ease;
-        border-radius: 3px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 4px;
+        box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
     }
 `;
 
