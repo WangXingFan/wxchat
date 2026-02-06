@@ -98,3 +98,12 @@ Object.freeze(CONFIG.FILE_ICONS);
 Object.freeze(CONFIG.FILE_EXTENSION_ICONS);
 Object.freeze(CONFIG.ERRORS);
 Object.freeze(CONFIG.SUCCESS);
+
+if (typeof window !== 'undefined' && typeof window.MessageHandler === 'undefined') {
+    window.MessageHandler = {
+        init() {},
+        async clearAllMessages() {
+            return { success: false, error: 'MessageHandler unavailable' };
+        }
+    };
+}

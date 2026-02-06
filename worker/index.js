@@ -560,6 +560,10 @@ api.use('*', authMiddleware)
 // 挂载API路由（需要认证）
 app.route('/api', api)
 
+app.get('/app.js', (c) => {
+  return c.redirect('/js/app.js', 302)
+})
+
 // 静态文件服务 - 使用getAssetFromKV
 app.get('*', async (c) => {
   if (c.env.ASSETS && typeof c.env.ASSETS.fetch === 'function') {
