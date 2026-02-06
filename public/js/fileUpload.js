@@ -1,26 +1,21 @@
-// 文件上传处理 - 精简版
+// 文件上传处理
 
 const FileUpload = {
-    // 拖拽状态
     isDragging: false,
     dragCounter: 0,
 
-    // 初始化文件上传
     init() {
         this.bindEvents();
         this.createDragOverlay();
         this.setupClipboardListener();
     },
 
-    // 绑定事件
     bindEvents() {
         const fileInput = document.getElementById('fileInput');
         const fileButton = document.getElementById('fileButton');
 
         if (fileButton && fileInput) {
-            fileButton.addEventListener('click', () => {
-                fileInput.click();
-            });
+            fileButton.addEventListener('click', () => fileInput.click());
         }
 
         if (fileInput) {
@@ -29,21 +24,49 @@ const FileUpload = {
             });
         }
 
-        // 全局拖拽事件
-        document.addEventListener('dragenter', this.handleDragEnter.bind(this));
-        document.addEventListener('dragover', this.handleDragOver.bind(this));
-        document.addEventListener('dragleave', this.handleDragLeave.bind(this));
-        document.addEventListener('drop', this.handleDrop.bind(this));
+        // Single set of drag/drop handlers (removed duplicate listeners)
+        document.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.dragCounter++;
+            if (e.dataTransfer.types.includes('Files')) {
+                this.showDragOverlay();
+            }
+        });
 
-        document.addEventListener('dragover', (e) => e.preventDefault());
-        document.addEventListener('drop', (e) => e.preventDefault());
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.dataTransfer.types.includes('Files')) {
+                e.dataTransfer.dropEffect = 'copy';
+            }
+        });
+
+        document.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.dragCounter--;
+            if (this.dragCounter === 0) {
+                this.hideDragOverlay();
+            }
+        });
+
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.dragCounter = 0;
+            this.hideDragOverlay();
+            if (e.dataTransfer.files.length > 0) {
+                this.handleFileSelect(e.dataTransfer.files);
+            }
+        });
     },
 
-    // 创建拖拽覆盖层
     createDragOverlay() {
         const overlay = document.createElement('div');
         overlay.id = 'dragOverlay';
         overlay.className = 'drag-overlay';
+        overlay.setAttribute('aria-hidden', 'true');
         overlay.innerHTML = `
             <div class="drag-content">
                 <div class="drag-icon">📁</div>
@@ -54,79 +77,31 @@ const FileUpload = {
         document.body.appendChild(overlay);
     },
 
-    // 设置剪贴板监听
     setupClipboardListener() {
-        document.addEventListener('paste', this.handlePaste.bind(this));
+        document.addEventListener('paste', (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            const files = [];
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].kind === 'file') {
+                    const file = items[i].getAsFile();
+                    if (file) files.push(file);
+                }
+            }
+
+            if (files.length > 0) {
+                e.preventDefault();
+                this.uploadMultipleFiles(files);
+            }
+        });
     },
 
-    // 处理文件选择
     async handleFileSelect(files) {
         if (!files || files.length === 0) return;
         await this.uploadMultipleFiles(Array.from(files));
     },
 
-    // 处理拖拽进入
-    handleDragEnter(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.dragCounter++;
-        if (e.dataTransfer.types.includes('Files')) {
-            this.showDragOverlay();
-        }
-    },
-
-    // 处理拖拽悬停
-    handleDragOver(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.dataTransfer.types.includes('Files')) {
-            e.dataTransfer.dropEffect = 'copy';
-        }
-    },
-
-    // 处理拖拽离开
-    handleDragLeave(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.dragCounter--;
-        if (this.dragCounter === 0) {
-            this.hideDragOverlay();
-        }
-    },
-
-    // 处理文件拖拽放下
-    handleDrop(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.dragCounter = 0;
-        this.hideDragOverlay();
-
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            this.handleFileSelect(files);
-        }
-    },
-
-    // 处理剪贴板粘贴
-    async handlePaste(e) {
-        const items = e.clipboardData?.items;
-        if (!items) return;
-
-        const files = [];
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].kind === 'file') {
-                const file = items[i].getAsFile();
-                if (file) files.push(file);
-            }
-        }
-
-        if (files.length > 0) {
-            e.preventDefault();
-            await this.uploadMultipleFiles(files);
-        }
-    },
-
-    // 显示拖拽覆盖层
     showDragOverlay() {
         const overlay = document.getElementById('dragOverlay');
         if (overlay) {
@@ -135,7 +110,6 @@ const FileUpload = {
         }
     },
 
-    // 隐藏拖拽覆盖层
     hideDragOverlay() {
         const overlay = document.getElementById('dragOverlay');
         if (overlay) {
@@ -144,11 +118,10 @@ const FileUpload = {
         }
     },
 
-    // 批量上传文件
     async uploadMultipleFiles(files) {
         if (!files || files.length === 0) return;
 
-        const validFiles = files.filter(file => this.validateFile(file));
+        const validFiles = files.filter(file => Utils.validateFileSize(file.size));
 
         if (validFiles.length === 0) {
             UI.showError('文件过大或格式不支持');
@@ -174,12 +147,9 @@ const FileUpload = {
 
         if (successCount > 0) {
             UI.showSuccess(`成功上传 ${successCount} 个文件`);
-            // 刷新文件列表
-            setTimeout(async () => {
-                if (window.app && window.app.refreshFiles) {
-                    await window.app.refreshFiles();
-                }
-            }, 500);
+            if (window.app) {
+                await window.app.refreshMessages();
+            }
         }
 
         if (failCount > 0) {
@@ -189,30 +159,21 @@ const FileUpload = {
         this.clearFileInput();
     },
 
-    // 上传单个文件
     async uploadSingleFile(file, current, total) {
         const deviceId = Utils.getDeviceId();
         this.updateBatchProgress(file.name, current, total);
 
-        const result = await API.uploadFile(file, deviceId, (progress) => {
+        return await API.uploadFile(file, deviceId, (progress) => {
             this.updateFileProgress(progress);
         });
-
-        return result;
     },
 
-    // 验证单个文件
-    validateFile(file) {
-        return Utils.validateFileSize(file.size);
-    },
-
-    // 显示批量上传状态
     showBatchUploadStatus(fileCount) {
         const statusElement = document.getElementById('uploadStatus');
         if (statusElement) {
             statusElement.style.display = 'flex';
             statusElement.innerHTML = `
-                <div class="upload-spinner">⏳</div>
+                <div class="upload-spinner" aria-hidden="true"></div>
                 <div class="upload-info">
                     <div class="upload-text">正在上传 ${fileCount} 个文件...</div>
                     <div class="upload-current" id="uploadCurrent"></div>
@@ -226,7 +187,6 @@ const FileUpload = {
         }
     },
 
-    // 隐藏批量上传状态
     hideBatchUploadStatus() {
         const statusElement = document.getElementById('uploadStatus');
         if (statusElement) {
@@ -234,17 +194,15 @@ const FileUpload = {
         }
     },
 
-    // 更新批量上传进度
     updateBatchProgress(fileName, current, total) {
         const currentElement = document.getElementById('uploadCurrent');
         if (currentElement) {
             const fileIcon = Utils.getFileIconByName(fileName);
             const displayName = fileName.length > 30 ? fileName.substring(0, 27) + '...' : fileName;
-            currentElement.innerHTML = `正在上传: ${fileIcon} ${displayName} (${current}/${total})`;
+            currentElement.textContent = `正在上传: ${fileIcon} ${displayName} (${current}/${total})`;
         }
     },
 
-    // 更新文件上传进度
     updateFileProgress(progress) {
         const progressFill = document.getElementById('progressFill');
         if (progressFill) {
@@ -252,19 +210,15 @@ const FileUpload = {
         }
     },
 
-    // 清空文件输入
     clearFileInput() {
         const fileInput = document.getElementById('fileInput');
         if (fileInput) {
             fileInput.value = '';
-            if (!fileInput.hasAttribute('multiple')) {
-                fileInput.setAttribute('multiple', 'true');
-            }
         }
     }
 };
 
-// 添加拖拽相关样式
+// Drag overlay & upload progress styles
 const uploadStyles = `
     .drag-overlay {
         position: fixed;
@@ -272,8 +226,8 @@ const uploadStyles = `
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(7, 193, 96, 0.1);
-        backdrop-filter: blur(2px);
+        background: rgba(7, 193, 96, 0.08);
+        backdrop-filter: blur(3px);
         z-index: 9999;
         display: flex;
         align-items: center;
@@ -290,76 +244,85 @@ const uploadStyles = `
     }
 
     .drag-content {
-        background: white;
-        border: 3px dashed #07c160;
+        background: #fff;
+        border: 2px dashed #07c160;
         border-radius: 20px;
-        padding: 3rem;
+        padding: 2.5rem 3rem;
         text-align: center;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     }
 
     .drag-icon {
-        font-size: 4rem;
-        margin-bottom: 1rem;
+        font-size: 3rem;
+        margin-bottom: 0.75rem;
     }
 
     .drag-text {
-        font-size: 1.5rem;
+        font-size: 1.25rem;
         font-weight: 600;
         color: #07c160;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
     }
 
     .drag-hint {
-        font-size: 1rem;
-        color: #666;
+        font-size: 0.875rem;
+        color: #999;
     }
 
-    .upload-status {
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
-        border-radius: 12px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        display: flex;
+    #uploadStatus {
+        background: #f7f7f7;
+        border: 1px solid #e6e6e6;
+        border-radius: 10px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
         align-items: center;
-        gap: 1rem;
+        gap: 0.75rem;
     }
 
     .upload-spinner {
-        font-size: 1.2rem;
-        animation: spin 1s linear infinite;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #e6e6e6;
+        border-top-color: #07c160;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
     }
 
     @keyframes spin {
-        from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
     }
 
     .upload-info {
         flex: 1;
+        min-width: 0;
     }
 
     .upload-text {
         font-weight: 600;
-        color: #333;
-        margin-bottom: 0.25rem;
+        color: #1a1a1a;
+        font-size: 13px;
+        margin-bottom: 2px;
     }
 
     .upload-current {
-        font-size: 0.9rem;
+        font-size: 12px;
         color: #666;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .upload-progress {
-        width: 200px;
+        width: 120px;
+        flex-shrink: 0;
     }
 
     .progress-bar {
         width: 100%;
-        height: 8px;
-        background-color: #e9ecef;
-        border-radius: 4px;
+        height: 6px;
+        background-color: #e6e6e6;
+        border-radius: 3px;
         overflow: hidden;
     }
 
@@ -367,7 +330,7 @@ const uploadStyles = `
         height: 100%;
         background: linear-gradient(90deg, #07c160, #06ad56);
         transition: width 0.3s ease;
-        border-radius: 4px;
+        border-radius: 3px;
     }
 `;
 

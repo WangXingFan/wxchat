@@ -14,11 +14,8 @@ const UI = {
     cacheElements() {
         this.elements = {
             messageList: document.getElementById('messageList'),
-            fileList: document.getElementById('fileList'),
             fileInput: document.getElementById('fileInput'),
             uploadStatus: document.getElementById('uploadStatus'),
-            progressBar: document.getElementById('progressBar'),
-            uploadButton: document.getElementById('uploadButton'),
             refreshButton: document.getElementById('refreshButton'),
             messageInput: document.getElementById('messageInput'),
             sendButton: document.getElementById('sendButton')
@@ -27,30 +24,60 @@ const UI = {
 
     // 绑定事件
     bindEvents() {
-        // 刷新按钮点击
         if (this.elements.refreshButton) {
             this.elements.refreshButton.addEventListener('click', () => {
-                if (window.app && window.app.refreshMessages) {
+                if (window.app) {
                     window.app.refreshMessages();
-                } else if (window.app && window.app.refreshFiles) {
-                    window.app.refreshFiles();
                 }
             });
         }
 
-        // 发送按钮点击
         if (this.elements.sendButton) {
             this.elements.sendButton.addEventListener('click', () => {
                 this.handleSendMessage();
             });
         }
 
-        // 消息输入框回车发送
         if (this.elements.messageInput) {
             this.elements.messageInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     this.handleSendMessage();
+                }
+            });
+        }
+
+        // Event delegation for message/file action buttons
+        const listEl = this.elements.messageList;
+        if (listEl) {
+            listEl.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-action]');
+                if (!btn) return;
+
+                const action = btn.dataset.action;
+                const item = btn.closest('[data-id]') || btn.closest('[data-r2key]');
+
+                if (action === 'copy') {
+                    const msgEl = btn.closest('[data-id]');
+                    if (msgEl) {
+                        const textEl = msgEl.querySelector('.message-text');
+                        if (textEl) this.copyText(textEl.textContent);
+                    }
+                } else if (action === 'delete-message') {
+                    const id = item?.dataset.id;
+                    if (id) this.confirmDeleteMessage(Number(id));
+                } else if (action === 'download') {
+                    const r2Key = btn.dataset.r2key;
+                    const fileName = btn.dataset.filename;
+                    if (r2Key && fileName) API.downloadFile(r2Key, fileName);
+                } else if (action === 'delete-file') {
+                    const r2Key = btn.dataset.r2key;
+                    const fileName = btn.dataset.filename;
+                    if (r2Key) this.confirmDelete(r2Key, fileName || '');
+                } else if (action === 'preview-image') {
+                    const r2Key = btn.dataset.r2key;
+                    const fileName = btn.dataset.filename;
+                    if (r2Key) this.showImageModal(r2Key, fileName || '');
                 }
             });
         }
@@ -70,12 +97,8 @@ const UI = {
         try {
             const deviceId = Utils.getDeviceId();
             await API.sendMessage(content, deviceId);
-
-            // 清空输入框
             input.value = '';
-
-            // 刷新消息列表
-            if (window.app && window.app.refreshMessages) {
+            if (window.app) {
                 await window.app.refreshMessages();
             }
         } catch (error) {
@@ -85,25 +108,25 @@ const UI = {
 
     // 显示加载状态
     showLoading(message = '加载中...') {
-        const listEl = this.elements.messageList || this.elements.fileList;
+        const listEl = this.elements.messageList;
         if (listEl) {
             listEl.innerHTML = `
-                <div class="loading">
-                    <div class="loading-spinner">⏳</div>
-                    <span>${message}</span>
+                <div class="loading" role="status">
+                    <div class="loading-spinner" aria-hidden="true"></div>
+                    <span>${Utils.escapeHtml(message)}</span>
                 </div>
             `;
         }
     },
 
     // 显示空状态
-    showEmpty(message = '暂无内容，发送点什么吧！') {
-        const listEl = this.elements.messageList || this.elements.fileList;
+    showEmpty(message = '暂无内容，发送点什么吧') {
+        const listEl = this.elements.messageList;
         if (listEl) {
             listEl.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">💬</div>
-                    <p>${message}</p>
+                    <div class="empty-icon" aria-hidden="true">💬</div>
+                    <p>${Utils.escapeHtml(message)}</p>
                 </div>
             `;
         }
@@ -117,7 +140,7 @@ const UI = {
         }
 
         const html = messages.map(msg => this.renderMessageItem(msg)).join('');
-        const listEl = this.elements.messageList || this.elements.fileList;
+        const listEl = this.elements.messageList;
 
         if (listEl) {
             listEl.innerHTML = html;
@@ -137,10 +160,11 @@ const UI = {
     // 渲染文本消息
     renderTextMessage(msg) {
         const time = Utils.formatTime(msg.timestamp);
-        const content = this.escapeHtml(msg.content || '');
+        const content = Utils.escapeHtml(msg.content || '');
+        const id = Number(msg.id);
 
         return `
-            <div class="message-item text-message" data-id="${msg.id}">
+            <div class="message-item text-message" data-id="${id}">
                 <div class="message-content">
                     <div class="message-text">${content}</div>
                     <div class="message-meta">
@@ -148,12 +172,8 @@ const UI = {
                     </div>
                 </div>
                 <div class="message-actions">
-                    <button class="copy-btn" onclick="UI.copyText('${this.escapeHtml(msg.content).replace(/'/g, "\\'")}')">
-                        📋 复制
-                    </button>
-                    <button class="delete-btn" onclick="UI.confirmDeleteMessage(${msg.id})">
-                        🗑️ 删除
-                    </button>
+                    <button class="copy-btn" data-action="copy" aria-label="复制文本">复制</button>
+                    <button class="delete-btn" data-action="delete-message" aria-label="删除消息">删除</button>
                 </div>
             </div>
         `;
@@ -166,30 +186,31 @@ const UI = {
         const time = Utils.formatTime(msg.timestamp);
         const isImage = Utils.isImageFile(msg.mime_type);
         const safeId = this.createSafeId(msg.r2_key || '');
+        const escapedName = Utils.escapeHtml(msg.file_name || '未知文件');
+        const id = Number(msg.id);
 
         let imagePreview = '';
         if (isImage && msg.r2_key) {
             imagePreview = `
                 <div class="image-preview" id="preview-${safeId}">
                     <div class="image-loading" id="loading-${safeId}">
-                        <div class="loading-spinner">⏳</div>
+                        <div class="loading-spinner" aria-hidden="true"></div>
                     </div>
-                    <img id="img-${safeId}" alt="${this.escapeHtml(msg.file_name)}"
-                         style="display: none; max-width: 200px; max-height: 150px; border-radius: 8px; margin-top: 8px;"
-                         onclick="UI.showImageModal('${msg.r2_key}', '${this.escapeHtml(msg.file_name)}')" />
+                    <img id="img-${safeId}" alt="${escapedName}"
+                         style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
+                         data-action="preview-image" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-filename="${escapedName}" />
                 </div>
             `;
 
-            // 延迟加载图片
             setTimeout(() => this.loadImageAsync(msg.r2_key, safeId), 100);
         }
 
         return `
-            <div class="message-item file-message" data-id="${msg.id}">
+            <div class="message-item file-message" data-id="${id}">
                 <div class="file-info">
-                    <div class="file-icon">${fileIcon}</div>
+                    <div class="file-icon" aria-hidden="true">${fileIcon}</div>
                     <div class="file-details">
-                        <div class="file-name">${this.escapeHtml(msg.file_name || '未知文件')}</div>
+                        <div class="file-name">${escapedName}</div>
                         <div class="file-meta">
                             <span class="file-size">${fileSize}</span>
                             <span class="file-time">${time}</span>
@@ -198,12 +219,8 @@ const UI = {
                 </div>
                 ${imagePreview}
                 <div class="message-actions">
-                    <button class="download-btn" onclick="API.downloadFile('${msg.r2_key}', '${this.escapeHtml(msg.file_name)}')">
-                        ⬇️ 下载
-                    </button>
-                    <button class="delete-btn" onclick="UI.confirmDeleteMessage(${msg.id})">
-                        🗑️ 删除
-                    </button>
+                    <button class="download-btn" data-action="download" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-filename="${escapedName}" aria-label="下载文件">下载</button>
+                    <button class="delete-btn" data-action="delete-message" aria-label="删除消息">删除</button>
                 </div>
             </div>
         `;
@@ -215,9 +232,9 @@ const UI = {
             await navigator.clipboard.writeText(text);
             this.showSuccess('已复制到剪贴板');
         } catch (error) {
-            // 降级方案
             const textarea = document.createElement('textarea');
             textarea.value = text;
+            textarea.style.cssText = 'position:fixed;left:-9999px';
             document.body.appendChild(textarea);
             textarea.select();
             document.execCommand('copy');
@@ -233,8 +250,7 @@ const UI = {
                 const response = await API.deleteMessage(id);
                 if (response.success) {
                     this.showSuccess('删除成功');
-                    // 刷新消息列表
-                    if (window.app && window.app.refreshMessages) {
+                    if (window.app) {
                         window.app.refreshMessages();
                     }
                 } else {
@@ -254,9 +270,10 @@ const UI = {
         }
 
         const html = files.map(file => this.renderFileItem(file)).join('');
+        const listEl = this.elements.messageList;
 
-        if (this.elements.fileList) {
-            this.elements.fileList.innerHTML = html;
+        if (listEl) {
+            listEl.innerHTML = html;
         }
     },
 
@@ -267,30 +284,30 @@ const UI = {
         const uploadTime = Utils.formatTime(file.upload_time);
         const isImage = Utils.isImageFile(file.mime_type);
         const safeId = this.createSafeId(file.r2_key);
+        const escapedName = Utils.escapeHtml(file.original_name);
 
         let imagePreview = '';
         if (isImage) {
             imagePreview = `
                 <div class="image-preview" id="preview-${safeId}">
                     <div class="image-loading" id="loading-${safeId}">
-                        <div class="loading-spinner">⏳</div>
+                        <div class="loading-spinner" aria-hidden="true"></div>
                     </div>
-                    <img id="img-${safeId}" alt="${this.escapeHtml(file.original_name)}"
-                         style="display: none; max-width: 200px; max-height: 150px; border-radius: 8px; margin-top: 8px;"
-                         onclick="UI.showImageModal('${file.r2_key}', '${this.escapeHtml(file.original_name)}')" />
+                    <img id="img-${safeId}" alt="${escapedName}"
+                         style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
+                         data-action="preview-image" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-filename="${escapedName}" />
                 </div>
             `;
 
-            // 延迟加载图片
             setTimeout(() => this.loadImageAsync(file.r2_key, safeId), 100);
         }
 
         return `
-            <div class="file-item" data-r2key="${file.r2_key}">
+            <div class="file-item" data-r2key="${Utils.escapeHtml(file.r2_key)}">
                 <div class="file-info">
-                    <div class="file-icon">${fileIcon}</div>
+                    <div class="file-icon" aria-hidden="true">${fileIcon}</div>
                     <div class="file-details">
-                        <div class="file-name">${this.escapeHtml(file.original_name)}</div>
+                        <div class="file-name">${escapedName}</div>
                         <div class="file-meta">
                             <span class="file-size">${fileSize}</span>
                             <span class="file-time">${uploadTime}</span>
@@ -299,12 +316,8 @@ const UI = {
                 </div>
                 ${imagePreview}
                 <div class="file-actions">
-                    <button class="download-btn" onclick="API.downloadFile('${file.r2_key}', '${this.escapeHtml(file.original_name)}')">
-                        ⬇️ 下载
-                    </button>
-                    <button class="delete-btn" onclick="UI.confirmDelete('${file.r2_key}', '${this.escapeHtml(file.original_name)}')">
-                        🗑️ 删除
-                    </button>
+                    <button class="download-btn" data-action="download" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-filename="${escapedName}" aria-label="下载文件">下载</button>
+                    <button class="delete-btn" data-action="delete-file" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-filename="${escapedName}" aria-label="删除文件">删除</button>
                 </div>
             </div>
         `;
@@ -317,9 +330,8 @@ const UI = {
                 const response = await API.deleteFile(r2Key);
                 if (response.success) {
                     this.showSuccess('文件删除成功');
-                    // 刷新文件列表
-                    if (window.app && window.app.refreshFiles) {
-                        window.app.refreshFiles();
+                    if (window.app) {
+                        window.app.refreshMessages();
                     }
                 } else {
                     this.showError(response.error || '删除失败');
@@ -332,36 +344,60 @@ const UI = {
 
     // 显示图片模态框
     showImageModal(r2Key, fileName) {
+        const escapedName = Utils.escapeHtml(fileName);
         const modal = document.createElement('div');
         modal.className = 'image-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-label', '图片预览');
         modal.innerHTML = `
             <div class="image-modal-content">
                 <div class="image-modal-header">
-                    <span>${this.escapeHtml(fileName)}</span>
-                    <button class="close-btn" onclick="this.closest('.image-modal').remove()">✕</button>
+                    <span>${escapedName}</span>
+                    <button class="close-btn" aria-label="关闭预览">✕</button>
                 </div>
                 <div class="image-modal-body">
-                    <img src="" alt="${this.escapeHtml(fileName)}" id="modal-img" />
+                    <div class="loading-spinner" aria-hidden="true" id="modal-loading"></div>
+                    <img src="" alt="${escapedName}" id="modal-img" style="display:none" />
                 </div>
                 <div class="image-modal-footer">
-                    <button onclick="API.downloadFile('${r2Key}', '${this.escapeHtml(fileName)}')">⬇️ 下载</button>
+                    <button class="modal-download-btn">下载</button>
                 </div>
             </div>
         `;
 
         document.body.appendChild(modal);
 
-        // 点击背景关闭
+        // Close handlers
+        const closeBtn = modal.querySelector('.close-btn');
+        closeBtn.addEventListener('click', () => modal.remove());
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.remove();
-            }
+            if (e.target === modal) modal.remove();
         });
 
-        // 加载图片
+        // Download handler
+        const downloadBtn = modal.querySelector('.modal-download-btn');
+        downloadBtn.addEventListener('click', () => {
+            API.downloadFile(r2Key, fileName);
+        });
+
+        // ESC key to close
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+
+        // Load image
         API.getImageBlobUrl(r2Key).then(blobUrl => {
             const img = modal.querySelector('#modal-img');
+            const loading = modal.querySelector('#modal-loading');
             if (img) {
+                img.onload = () => {
+                    if (loading) loading.style.display = 'none';
+                    img.style.display = 'block';
+                };
                 img.src = blobUrl;
             }
         });
@@ -398,16 +434,9 @@ const UI = {
             console.error('图片加载失败:', error);
             const loadingElement = document.getElementById(`loading-${safeId}`);
             if (loadingElement) {
-                loadingElement.innerHTML = '<span style="color: #999;">图片加载失败</span>';
+                loadingElement.innerHTML = '<span style="color: #999; font-size: 13px;">图片加载失败</span>';
             }
         }
-    },
-
-    // 转义HTML
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     },
 
     // 显示错误消息
@@ -418,35 +447,46 @@ const UI = {
 
     // 显示成功消息
     showSuccess(message) {
-        console.log('成功:', message);
         this.showToast(message, 'success');
     },
 
-    // 显示Toast提示
+    // 显示Toast提示（支持堆叠）
     showToast(message, type = 'info') {
+        // Remove existing toasts of same type to avoid stacking
+        const existing = document.querySelectorAll(`.toast-${type}`);
+        existing.forEach(el => el.remove());
+
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
         toast.textContent = message;
+
+        const bgMap = { error: '#fa5151', success: '#07c160', info: '#333' };
         toast.style.cssText = `
             position: fixed;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 12px 24px;
+            padding: 10px 20px;
             border-radius: 8px;
-            color: white;
+            color: #fff;
             font-size: 14px;
-            z-index: 10000;
-            animation: fadeIn 0.3s ease-out;
-            background: ${type === 'error' ? '#ff4757' : type === 'success' ? '#07c160' : '#333'};
+            z-index: 10001;
+            animation: fadeIn 0.2s ease-out;
+            background: ${bgMap[type] || bgMap.info};
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 90%;
+            text-align: center;
         `;
 
         document.body.appendChild(toast);
 
         setTimeout(() => {
             toast.style.animation = 'fadeOut 0.3s ease-out';
+            toast.style.opacity = '0';
             setTimeout(() => toast.remove(), 300);
-        }, 3000);
+        }, 2500);
     },
 
     // 显示上传状态
@@ -458,8 +498,9 @@ const UI = {
 
     // 更新上传进度
     updateUploadProgress(percent) {
-        if (this.elements.progressBar) {
-            this.elements.progressBar.style.width = `${percent}%`;
+        const progressBar = document.getElementById('progressFill');
+        if (progressBar) {
+            progressBar.style.width = `${percent}%`;
         }
     },
 

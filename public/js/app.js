@@ -6,38 +6,29 @@ class FileTransferApp {
         this.deviceId = null;
     }
 
-    // 初始化应用
     async init() {
         try {
-            // 初始化鉴权模块
             Auth.init();
 
-            // 检查认证状态
             const isAuthenticated = await Auth.checkAuthentication();
             if (!isAuthenticated) {
                 window.location.href = '/login.html';
                 return;
             }
 
-            // 初始化设备ID
             this.deviceId = Utils.getDeviceId();
 
-            // 初始化各个模块
             UI.init();
             FileUpload.init();
 
-            // 加载消息列表
             await this.loadMessages();
 
-            // 标记为已初始化
             this.isInitialized = true;
-
         } catch (error) {
             this.showInitError(error);
         }
     }
 
-    // 加载消息列表（文本+文件混合）
     async loadMessages() {
         try {
             UI.showLoading('加载消息列表...');
@@ -53,78 +44,53 @@ class FileTransferApp {
         }
     }
 
-    // 刷新消息列表
     async refreshMessages() {
         await this.loadMessages();
     }
 
-    // 加载文件列表（保留兼容）
-    async loadFiles() {
-        await this.loadMessages();
-    }
-
-    // 刷新文件列表（保留兼容）
+    // Alias for backward compatibility
     async refreshFiles() {
         await this.loadMessages();
     }
 
-    // 显示初始化错误
     showInitError(error) {
-        const errorMessage = `
-            <div style="text-align: center; padding: 2rem; color: #ff4757;">
-                <h2>应用启动失败</h2>
-                <p>${error.message}</p>
-                <button onclick="location.reload()" style="
-                    background: #07c160;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    margin-top: 1rem;
-                ">
-                    重新加载
-                </button>
-            </div>
-        `;
+        const container = document.querySelector('.app') || document.body;
+        const errorDiv = document.createElement('div');
+        errorDiv.setAttribute('role', 'alert');
+        errorDiv.style.cssText = 'text-align:center;padding:3rem 1.5rem;color:#fa5151;';
 
-        document.body.innerHTML = errorMessage;
-    }
+        const h2 = document.createElement('h2');
+        h2.textContent = '应用启动失败';
+        errorDiv.appendChild(h2);
 
-    // 获取应用状态
-    getStatus() {
-        return {
-            initialized: this.isInitialized,
-            deviceId: this.deviceId,
-            online: navigator.onLine,
-            timestamp: new Date().toISOString()
-        };
+        const p = document.createElement('p');
+        p.textContent = error.message;
+        p.style.margin = '1rem 0';
+        errorDiv.appendChild(p);
+
+        const btn = document.createElement('button');
+        btn.textContent = '重新加载';
+        btn.style.cssText = 'background:#07c160;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:15px;';
+        btn.addEventListener('click', () => location.reload());
+        errorDiv.appendChild(btn);
+
+        container.innerHTML = '';
+        container.appendChild(errorDiv);
     }
 }
 
-// 创建应用实例
 const app = new FileTransferApp();
 
-// DOM加载完成后初始化应用
 document.addEventListener('DOMContentLoaded', () => {
     app.init();
 });
 
-// 全局错误处理
 window.addEventListener('error', (event) => {
     console.error('全局错误:', event.error);
 });
 
-// 未处理的Promise错误
 window.addEventListener('unhandledrejection', (event) => {
     console.error('未处理的Promise错误:', event.reason);
 });
 
-// 导出到全局作用域
 window.app = app;
-window.FileTransferApp = app;
-window.CONFIG = CONFIG;
-window.Utils = Utils;
-window.API = API;
-window.UI = UI;
-window.FileUpload = FileUpload;
