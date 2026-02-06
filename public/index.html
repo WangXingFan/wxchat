@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>文件传输助手</title>
 
+    <!-- Resource Hints for Performance -->
+    <link rel="dns-prefetch" href="//cloudflare.com">
+    <link rel="preconnect" href="//cloudflare.com" crossorigin>
+
     <!-- Mobile Meta -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -572,7 +576,7 @@
         </div>
     </div>
 
-    <!-- JavaScript -->
+    <!-- JavaScript - Optimized Loading Order -->
     <script src="./js/config.js"></script>
     <script src="./js/utils.js"></script>
     <script src="./js/auth.js"></script>
@@ -580,5 +584,40 @@
     <script src="./js/ui.js"></script>
     <script src="./js/fileUpload.js"></script>
     <script src="./js/app.js"></script>
+
+    <!-- Performance Monitoring -->
+    <script>
+        // Report Core Web Vitals
+        if ('PerformanceObserver' in window) {
+            try {
+                // LCP (Largest Contentful Paint)
+                new PerformanceObserver((list) => {
+                    const entries = list.getEntries();
+                    const lastEntry = entries[entries.length - 1];
+                    console.log('[Perf] LCP:', Math.round(lastEntry.startTime), 'ms');
+                }).observe({ type: 'largest-contentful-paint', buffered: true });
+
+                // FID (First Input Delay)
+                new PerformanceObserver((list) => {
+                    list.getEntries().forEach((entry) => {
+                        console.log('[Perf] FID:', Math.round(entry.processingStart - entry.startTime), 'ms');
+                    });
+                }).observe({ type: 'first-input', buffered: true });
+
+                // CLS (Cumulative Layout Shift)
+                let clsValue = 0;
+                new PerformanceObserver((list) => {
+                    list.getEntries().forEach((entry) => {
+                        if (!entry.hadRecentInput) {
+                            clsValue += entry.value;
+                        }
+                    });
+                    console.log('[Perf] CLS:', clsValue.toFixed(4));
+                }).observe({ type: 'layout-shift', buffered: true });
+            } catch (e) {
+                // PerformanceObserver not fully supported
+            }
+        }
+    </script>
 </body>
 </html>

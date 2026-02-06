@@ -4,6 +4,9 @@ const UI = {
     // DOM 元素缓存
     elements: {},
 
+    // Image blob URL cache to avoid re-fetching
+    imageCache: new Map(),
+
     // 初始化UI
     init() {
         this.cacheElements();
@@ -132,19 +135,32 @@ const UI = {
         }
     },
 
-    // 渲染消息列表（文本+文件混合）
+    // 渲染消息列表（文本+文件混合）- 优化版
     renderMessages(messages) {
         if (!messages || messages.length === 0) {
             this.showEmpty();
             return;
         }
 
-        const html = messages.map(msg => this.renderMessageItem(msg)).join('');
         const listEl = this.elements.messageList;
+        if (!listEl) return;
 
-        if (listEl) {
-            listEl.innerHTML = html;
+        // Use DocumentFragment for batch DOM operations
+        const fragment = document.createDocumentFragment();
+        const tempContainer = document.createElement('div');
+
+        // Build HTML string first (faster than individual createElement)
+        const html = messages.map(msg => this.renderMessageItem(msg)).join('');
+        tempContainer.innerHTML = html;
+
+        // Move all children to fragment
+        while (tempContainer.firstChild) {
+            fragment.appendChild(tempContainer.firstChild);
         }
+
+        // Single DOM update
+        listEl.innerHTML = '';
+        listEl.appendChild(fragment);
     },
 
     // 渲染单条消息
@@ -198,11 +214,18 @@ const UI = {
                     </div>
                     <img id="img-${safeId}" alt="${escapedName}"
                          style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
-                         data-action="preview-image" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-filename="${escapedName}" />
+                         data-action="preview-image" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-filename="${escapedName}"
+                         loading="lazy" />
                 </div>
             `;
 
-            setTimeout(() => this.loadImageAsync(msg.r2_key, safeId), 100);
+            // Use requestIdleCallback for non-blocking image loading
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(() => this.loadImageAsync(msg.r2_key, safeId), { timeout: 2000 });
+            } else {
+                // Fallback: use requestAnimationFrame for better performance than setTimeout
+                requestAnimationFrame(() => this.loadImageAsync(msg.r2_key, safeId));
+            }
         }
 
         return `
@@ -262,19 +285,29 @@ const UI = {
         }
     },
 
-    // 渲染文件列表
+    // 渲染文件列表 - 优化版
     renderFiles(files) {
         if (!files || files.length === 0) {
             this.showEmpty();
             return;
         }
 
-        const html = files.map(file => this.renderFileItem(file)).join('');
         const listEl = this.elements.messageList;
+        if (!listEl) return;
 
-        if (listEl) {
-            listEl.innerHTML = html;
+        // Use DocumentFragment for batch DOM operations
+        const fragment = document.createDocumentFragment();
+        const tempContainer = document.createElement('div');
+
+        const html = files.map(file => this.renderFileItem(file)).join('');
+        tempContainer.innerHTML = html;
+
+        while (tempContainer.firstChild) {
+            fragment.appendChild(tempContainer.firstChild);
         }
+
+        listEl.innerHTML = '';
+        listEl.appendChild(fragment);
     },
 
     // 渲染单个文件项
@@ -295,11 +328,17 @@ const UI = {
                     </div>
                     <img id="img-${safeId}" alt="${escapedName}"
                          style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
-                         data-action="preview-image" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-filename="${escapedName}" />
+                         data-action="preview-image" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-filename="${escapedName}"
+                         loading="lazy" />
                 </div>
             `;
 
-            setTimeout(() => this.loadImageAsync(file.r2_key, safeId), 100);
+            // Use requestIdleCallback for non-blocking image loading
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(() => this.loadImageAsync(file.r2_key, safeId), { timeout: 2000 });
+            } else {
+                requestAnimationFrame(() => this.loadImageAsync(file.r2_key, safeId));
+            }
         }
 
         return `
@@ -408,7 +447,7 @@ const UI = {
         return str.replace(/[^a-zA-Z0-9-_]/g, '');
     },
 
-    // 异步加载图片
+    // 异步加载图片 - 带缓存优化
     async loadImageAsync(r2Key, safeId) {
         try {
             const loadingElement = document.getElementById(`loading-${safeId}`);
@@ -419,7 +458,19 @@ const UI = {
             loadingElement.style.display = 'flex';
             imageElement.style.display = 'none';
 
-            const blobUrl = await API.getImageBlobUrl(r2Key);
+            // Check cache first
+            let blobUrl = this.imageCache.get(r2Key);
+            if (!blobUrl) {
+                blobUrl = await API.getImageBlobUrl(r2Key);
+                // Cache the blob URL (limit cache size to prevent memory issues)
+                if (this.imageCache.size > 50) {
+                    // Remove oldest entry
+                    const firstKey = this.imageCache.keys().next().value;
+                    URL.revokeObjectURL(this.imageCache.get(firstKey));
+                    this.imageCache.delete(firstKey);
+                }
+                this.imageCache.set(r2Key, blobUrl);
+            }
 
             await new Promise((resolve, reject) => {
                 imageElement.onload = resolve;

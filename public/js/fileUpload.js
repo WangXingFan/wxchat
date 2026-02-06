@@ -130,17 +130,37 @@ const FileUpload = {
 
         this.showBatchUploadStatus(validFiles.length);
 
+        // Parallel upload with concurrency limit
+        const CONCURRENCY = 3;
         let successCount = 0;
         let failCount = 0;
+        let completed = 0;
 
-        for (let i = 0; i < validFiles.length; i++) {
+        const uploadWithProgress = async (file, index) => {
             try {
-                await this.uploadSingleFile(validFiles[i], i + 1, validFiles.length);
+                this.updateBatchProgress(file.name, index + 1, validFiles.length);
+                const deviceId = Utils.getDeviceId();
+                await API.uploadFile(file, deviceId, (progress) => {
+                    this.updateFileProgress(progress);
+                });
                 successCount++;
             } catch (error) {
                 failCount++;
-                console.error(`文件 ${validFiles[i].name} 上传失败:`, error);
+                console.error(`文件 ${file.name} 上传失败:`, error);
+            } finally {
+                completed++;
+                this.updateBatchProgress(
+                    validFiles[Math.min(completed, validFiles.length - 1)]?.name || '',
+                    completed,
+                    validFiles.length
+                );
             }
+        };
+
+        // Process files in batches for controlled parallelism
+        for (let i = 0; i < validFiles.length; i += CONCURRENCY) {
+            const batch = validFiles.slice(i, i + CONCURRENCY);
+            await Promise.all(batch.map((file, idx) => uploadWithProgress(file, i + idx)));
         }
 
         this.hideBatchUploadStatus();
