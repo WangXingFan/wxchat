@@ -204,6 +204,18 @@
             line-height: 1.4;
         }
 
+        .header-btn-danger {
+            color: var(--color-danger);
+            border-color: rgba(255, 107, 107, 0.35);
+        }
+
+        .header-btn-danger:hover {
+            color: #fff;
+            background: var(--color-danger);
+            border-color: var(--color-danger);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.35);
+        }
+
         .header-btn:hover {
             background: var(--glass-bg-strong);
             color: var(--color-primary);
@@ -800,6 +812,15 @@
                 border-radius: 0;
             }
 
+            .header-actions {
+                gap: 8px;
+            }
+
+            .header-btn {
+                padding: 7px 12px;
+                font-size: 12px;
+            }
+
             .file-list {
                 padding: 12px;
             }
@@ -844,6 +865,7 @@
             <h1 class="app-title">文件传输助手</h1>
             <div class="header-actions">
                 <button class="header-btn" id="refreshButton" aria-label="刷新消息列表">刷新</button>
+                <button class="header-btn header-btn-danger" id="clearAllButton" aria-label="清空所有消息和文件">清空全部</button>
             </div>
         </header>
 

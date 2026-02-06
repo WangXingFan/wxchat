@@ -460,6 +460,48 @@ api.post('/messages', async (c) => {
   }
 })
 
+// 清空全部消息与文件
+api.delete('/messages', async (c) => {
+  try {
+    const { DB, R2 } = c.env
+
+    const [fileResult, messageCountResult] = await Promise.all([
+      DB.prepare('SELECT r2_key FROM files').all(),
+      DB.prepare('SELECT COUNT(*) as total FROM messages').first()
+    ])
+
+    const fileKeys = (fileResult.results || [])
+      .map((item) => item.r2_key)
+      .filter(Boolean)
+
+    for (const fileKey of fileKeys) {
+      try {
+        await R2.delete(fileKey)
+      } catch (r2Error) {
+        console.error('R2删除文件失败:', r2Error)
+      }
+    }
+
+    await DB.prepare('DELETE FROM messages').run()
+    await DB.prepare('DELETE FROM files').run()
+
+    return c.json({
+      success: true,
+      message: '已清空全部消息和文件',
+      data: {
+        deletedMessages: messageCountResult?.total || 0,
+        deletedFiles: fileKeys.length
+      }
+    })
+  } catch (error) {
+    console.error('清空全部消息失败:', error)
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500)
+  }
+})
+
 // 删除消息
 api.delete('/messages/:id', async (c) => {
   try {

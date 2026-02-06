@@ -20,6 +20,7 @@ const UI = {
             fileInput: document.getElementById('fileInput'),
             uploadStatus: document.getElementById('uploadStatus'),
             refreshButton: document.getElementById('refreshButton'),
+            clearAllButton: document.getElementById('clearAllButton'),
             messageInput: document.getElementById('messageInput'),
             sendButton: document.getElementById('sendButton')
         };
@@ -31,6 +32,14 @@ const UI = {
             this.elements.refreshButton.addEventListener('click', () => {
                 if (window.app) {
                     window.app.refreshMessages();
+                }
+            });
+        }
+
+        if (this.elements.clearAllButton) {
+            this.elements.clearAllButton.addEventListener('click', () => {
+                if (window.app && typeof window.app.clearAllMessages === 'function') {
+                    window.app.clearAllMessages();
                 }
             });
         }
@@ -175,7 +184,7 @@ const UI = {
 
     // 渲染文本消息
     renderTextMessage(msg) {
-        const time = Utils.formatTime(msg.timestamp);
+        const time = Utils.formatDateTime(msg.timestamp);
         const content = Utils.escapeHtml(msg.content || '');
         const id = Number(msg.id);
 
@@ -199,7 +208,7 @@ const UI = {
     renderFileMessage(msg) {
         const fileIcon = Utils.getFileIcon(msg.mime_type, msg.file_name);
         const fileSize = Utils.formatFileSize(msg.file_size);
-        const time = Utils.formatTime(msg.timestamp);
+        const time = Utils.formatDateTime(msg.timestamp);
         const isImage = Utils.isImageFile(msg.mime_type);
         const safeId = this.createSafeId(msg.r2_key || '');
         const escapedName = Utils.escapeHtml(msg.file_name || '未知文件');
@@ -314,7 +323,7 @@ const UI = {
     renderFileItem(file) {
         const fileIcon = Utils.getFileIcon(file.mime_type, file.original_name);
         const fileSize = Utils.formatFileSize(file.file_size);
-        const uploadTime = Utils.formatTime(file.upload_time);
+        const uploadTime = Utils.formatDateTime(file.upload_time);
         const isImage = Utils.isImageFile(file.mime_type);
         const safeId = this.createSafeId(file.r2_key);
         const escapedName = Utils.escapeHtml(file.original_name);

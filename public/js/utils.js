@@ -57,6 +57,21 @@ const Utils = {
         });
     },
 
+    formatDateTime(timestamp) {
+        const date = new Date(timestamp);
+        if (Number.isNaN(date.getTime())) {
+            return '';
+        }
+
+        return date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    },
+
     // 获取文件图标
     getFileIcon(mimeType, fileName = null) {
         if (mimeType) {

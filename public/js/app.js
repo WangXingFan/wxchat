@@ -48,6 +48,27 @@ class FileTransferApp {
         await this.loadMessages();
     }
 
+    async clearAllMessages() {
+        const confirmed = confirm('确定要清空所有消息和文件吗？该操作不可恢复。');
+        if (!confirmed) return;
+
+        try {
+            UI.showLoading('正在清空全部内容...');
+            const response = await API.clearAllMessages();
+
+            if (response && response.success) {
+                UI.showSuccess('已清空所有消息和文件');
+                await this.loadMessages();
+                return;
+            }
+
+            throw new Error(response?.error || '清空失败');
+        } catch (error) {
+            UI.showError('清空失败: ' + error.message);
+            await this.loadMessages();
+        }
+    }
+
     // Alias for backward compatibility
     async refreshFiles() {
         await this.loadMessages();

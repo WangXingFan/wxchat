@@ -157,6 +157,16 @@ const API = {
         }
     },
 
+    async clearAllMessages() {
+        try {
+            const response = await this.delete(CONFIG.API.ENDPOINTS.MESSAGES);
+            return response;
+        } catch (error) {
+            console.error('清空全部消息失败:', error);
+            throw error;
+        }
+    },
+
     // 上传文件
     async uploadFile(file, deviceId, onProgress = null) {
         try {
