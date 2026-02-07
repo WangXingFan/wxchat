@@ -305,7 +305,23 @@ const API = {
         }
     },
 
-    // 清理图片blob URL缓存
+    async fetchImageBlobUrl(r2Key) {
+        const encodedKey = encodeURIComponent(r2Key);
+        const url = `${CONFIG.API.ENDPOINTS.FILES_PREVIEW}/${encodedKey}`;
+        const authHeaders = Auth ? Auth.addAuthHeader({}) : {};
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: authHeaders
+        });
+
+        if (!response.ok) {
+            throw new Error(`��ȡͼƬʧ��: ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        return window.URL.createObjectURL(blob);
+    },
     clearImageBlobCache() {
         this.imageBlobCache.clear();
     }

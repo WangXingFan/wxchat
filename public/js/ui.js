@@ -1,4 +1,4 @@
-// UI 操作和渲染 - 支持文件和文本消息
+﻿// UI 操作和渲染 - 支持文件和文本消息
 
 const UI = {
     // DOM 元素缓存
@@ -228,6 +228,7 @@ const UI = {
                 <div class="image-preview" id="preview-${safeId}">
                     <div class="image-loading" id="loading-${safeId}">
                         <div class="loading-spinner" aria-hidden="true"></div>
+                        <button class="download-btn" data-action="download" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-filename="${escapedName}" aria-label="下载原图">下载原图</button>
                     </div>
                     <img id="img-${safeId}" alt="${escapedName}"
                          style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
@@ -335,6 +336,7 @@ const UI = {
                 <div class="image-preview" id="preview-${safeId}">
                     <div class="image-loading" id="loading-${safeId}">
                         <div class="loading-spinner" aria-hidden="true"></div>
+                        <button class="download-btn" data-action="download" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-filename="${escapedName}" aria-label="下载原图">下载原图</button>
                     </div>
                     <img id="img-${safeId}" alt="${escapedName}"
                          style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
@@ -435,12 +437,43 @@ const UI = {
         API.getImageBlobUrl(r2Key).then(blobUrl => {
             const img = modal.querySelector('#modal-img');
             const loading = modal.querySelector('#modal-loading');
-            if (img) {
+            if (!img) return;
+
+            img.onload = () => {
+                if (loading) loading.style.display = 'none';
+                img.style.display = 'block';
+            };
+            img.onerror = async () => {
+                try {
+                    const fallbackBlobUrl = await API.fetchImageBlobUrl(r2Key);
+                    img.onerror = null;
+                    img.src = fallbackBlobUrl;
+                } catch (fallbackError) {
+                    console.error('模态图预览失败:', fallbackError);
+                    if (loading) {
+                        loading.textContent = '图片预览失败';
+                    }
+                }
+            };
+            img.src = blobUrl;
+        }).catch(async (error) => {
+            console.error('获取模态预览地址失败:', error);
+            const img = modal.querySelector('#modal-img');
+            const loading = modal.querySelector('#modal-loading');
+            if (!img) return;
+
+            try {
+                const fallbackBlobUrl = await API.fetchImageBlobUrl(r2Key);
                 img.onload = () => {
                     if (loading) loading.style.display = 'none';
                     img.style.display = 'block';
                 };
-                img.src = blobUrl;
+                img.src = fallbackBlobUrl;
+            } catch (fallbackError) {
+                console.error('模态图降级加载失败:', fallbackError);
+                if (loading) {
+                    loading.textContent = '图片预览失败';
+                }
             }
         });
     },
@@ -534,13 +567,10 @@ const UI = {
             loadingElement.style.display = 'flex';
             imageElement.style.display = 'none';
 
-            // Check cache first
             let blobUrl = this.imageCache.get(r2Key);
             if (!blobUrl) {
                 blobUrl = await API.getImageBlobUrl(r2Key);
-                // Cache the blob URL (limit cache size to prevent memory issues)
                 if (this.imageCache.size > 50) {
-                    // Remove oldest entry
                     const firstKey = this.imageCache.keys().next().value;
                     this.imageCache.delete(firstKey);
                 }
@@ -555,16 +585,36 @@ const UI = {
 
             loadingElement.style.display = 'none';
             imageElement.style.display = 'block';
-
         } catch (error) {
             console.error('图片加载失败:', error);
             const loadingElement = document.getElementById(`loading-${safeId}`);
+            const imageElement = document.getElementById(`img-${safeId}`);
+
+            if (imageElement) {
+                imageElement.style.display = 'none';
+                imageElement.removeAttribute('src');
+            }
+
+            try {
+                const fallbackBlobUrl = await API.fetchImageBlobUrl(r2Key);
+                if (imageElement) {
+                    imageElement.src = fallbackBlobUrl;
+                    imageElement.style.display = 'block';
+                }
+                if (loadingElement) {
+                    loadingElement.style.display = 'none';
+                }
+                return;
+            } catch (fallbackError) {
+                console.error('图片加载降级失败:', fallbackError);
+            }
+
             if (loadingElement) {
-                loadingElement.innerHTML = '<span style="color: #999; font-size: 13px;">图片加载失败</span>';
+                loadingElement.innerHTML = '<span style="color: #999; font-size: 13px;">图片预览失败</span>' +
+                    `<button class="download-btn" data-action="download" data-r2key="${r2Key}" data-filename="image" aria-label="下载原图">下载原图</button>`;
             }
         }
     },
-
     // 显示错误消息
     showError(message) {
         console.error('错误:', message);
@@ -636,3 +686,5 @@ const UI = {
         this.updateUploadProgress(0);
     }
 };
+
+
