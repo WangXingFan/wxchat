@@ -86,6 +86,38 @@ const resolveMimeType = (mimeType, fileName = '') => {
   return mimeType || 'application/octet-stream'
 }
 
+const buildPreviewEtag = (object, fileInfo, r2Key) => {
+  if (object?.httpEtag) {
+    return object.httpEtag
+  }
+
+  if (object?.etag) {
+    return `"${object.etag}"`
+  }
+
+  const version = fileInfo.updated_at || fileInfo.created_at || fileInfo.file_size || '0'
+  return `"${r2Key}-${version}"`
+}
+
+const isEtagMatched = (ifNoneMatch, etag) => {
+  if (!ifNoneMatch || !etag) {
+    return false
+  }
+
+  const rawHeader = ifNoneMatch.trim()
+  if (rawHeader === '*') {
+    return true
+  }
+
+  const candidates = rawHeader.split(',').map((item) => item.trim())
+  if (candidates.includes(etag)) {
+    return true
+  }
+
+  const weakEtag = etag.startsWith('W/') ? etag : `W/${etag}`
+  return candidates.includes(weakEtag)
+}
+
 // 鉴权中间件
 const authMiddleware = async (c, next) => {
   // 跳过登录和静态资源
@@ -517,13 +549,28 @@ api.get('/files/preview/:r2Key', async (c) => {
     }
 
     const previewMimeType = resolveMimeType(fileInfo.mime_type, fileInfo.original_name || r2Key)
+    const etag = buildPreviewEtag(object, fileInfo, r2Key)
+    const ifNoneMatch = c.req.header('If-None-Match')
+
+    if (isEtagMatched(ifNoneMatch, etag)) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          'Cache-Control': 'private, max-age=3600',
+          ETag: etag,
+          Vary: 'Authorization'
+        }
+      })
+    }
 
     return new Response(object.body, {
       headers: {
         'Content-Type': previewMimeType,
         'Content-Disposition': `inline; filename="${fileInfo.original_name}"`,
         'Content-Length': fileInfo.file_size.toString(),
-        'Cache-Control': 'private, max-age=3600'
+        'Cache-Control': 'private, max-age=3600',
+        ETag: etag,
+        Vary: 'Authorization'
       }
     })
   } catch (error) {

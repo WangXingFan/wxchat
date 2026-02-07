@@ -1,4 +1,4 @@
-// API 接口封装 - 支持文件和文本消息
+// API 接口封装 - 支持文件和文本消�?
 
 const API = {
     // 通用请求方法
@@ -109,7 +109,7 @@ const API = {
         }
     },
 
-    // 获取消息列表（文本+文件混合）
+    // 获取消息列表（文�?文件混合�?
     async getMessages(limit = CONFIG.UI.FILE_LOAD_LIMIT, offset = 0) {
         try {
             const response = await this.get(CONFIG.API.ENDPOINTS.MESSAGES, {
@@ -123,7 +123,7 @@ const API = {
         }
     },
 
-    // 发送文本消息
+    // 发送文本消�?
     async sendMessage(content, deviceId) {
         try {
             if (!content || !content.trim()) {
@@ -141,7 +141,7 @@ const API = {
                 throw new Error(response.error || CONFIG.ERRORS.MESSAGE_SEND_FAILED);
             }
         } catch (error) {
-            console.error('发送消息失败:', error);
+            console.error('发送消息失�?', error);
             throw error;
         }
     },
@@ -241,7 +241,7 @@ const API = {
 
             const authHeaders = Auth ? Auth.addAuthHeader({}) : {};
 
-            const response = await fetch(url, {
+            const response = await fetch(previewUrl, {
                 method: 'GET',
                 headers: authHeaders
             });
@@ -291,24 +291,14 @@ const API = {
         }
 
         try {
-            const url = `${CONFIG.API.ENDPOINTS.FILES_PREVIEW}/${r2Key}`;
-            const authHeaders = Auth ? Auth.addAuthHeader({}) : {};
+            const encodedKey = encodeURIComponent(r2Key);
+            const token = Auth && typeof Auth.getToken === 'function' ? Auth.getToken() : null;
+            const query = token ? `?token=${encodeURIComponent(token)}` : '';
+            const previewUrl = `${CONFIG.API.ENDPOINTS.FILES_PREVIEW}/${encodedKey}${query}`;
 
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: authHeaders
-            });
+            this.imageBlobCache.set(r2Key, previewUrl);
 
-            if (!response.ok) {
-                throw new Error(`获取图片失败: ${response.status}`);
-            }
-
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-
-            this.imageBlobCache.set(r2Key, blobUrl);
-
-            return blobUrl;
+            return previewUrl;
         } catch (error) {
             console.error('获取图片blob URL失败:', error);
             throw error;
@@ -317,11 +307,9 @@ const API = {
 
     // 清理图片blob URL缓存
     clearImageBlobCache() {
-        for (const [key, blobUrl] of this.imageBlobCache) {
-            window.URL.revokeObjectURL(blobUrl);
-        }
         this.imageBlobCache.clear();
     }
 };
 
 Object.freeze(API);
+

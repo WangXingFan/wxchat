@@ -7,10 +7,17 @@ const UI = {
     // Image blob URL cache to avoid re-fetching
     imageCache: new Map(),
 
+    // Preview loading controls
+    imageObserver: null,
+    pendingImageTasks: [],
+    activeImageLoads: 0,
+    maxConcurrentImageLoads: 3,
+
     // 初始化UI
     init() {
         this.cacheElements();
         this.bindEvents();
+        this.setupImageObserver();
     },
 
     // 缓存DOM元素
@@ -170,6 +177,7 @@ const UI = {
         // Single DOM update
         listEl.innerHTML = '';
         listEl.appendChild(fragment);
+        this.registerImagePreviews();
     },
 
     // 渲染单条消息
@@ -223,18 +231,10 @@ const UI = {
                     </div>
                     <img id="img-${safeId}" alt="${escapedName}"
                          style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
-                         data-action="preview-image" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-filename="${escapedName}"
+                         data-action="preview-image" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-safeid="${safeId}" data-filename="${escapedName}"
                          loading="lazy" />
                 </div>
             `;
-
-            // Use requestIdleCallback for non-blocking image loading
-            if ('requestIdleCallback' in window) {
-                requestIdleCallback(() => this.loadImageAsync(msg.r2_key, safeId), { timeout: 2000 });
-            } else {
-                // Fallback: use requestAnimationFrame for better performance than setTimeout
-                requestAnimationFrame(() => this.loadImageAsync(msg.r2_key, safeId));
-            }
         }
 
         return `
@@ -317,6 +317,7 @@ const UI = {
 
         listEl.innerHTML = '';
         listEl.appendChild(fragment);
+        this.registerImagePreviews();
     },
 
     // 渲染单个文件项
@@ -337,17 +338,10 @@ const UI = {
                     </div>
                     <img id="img-${safeId}" alt="${escapedName}"
                          style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
-                         data-action="preview-image" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-filename="${escapedName}"
+                         data-action="preview-image" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-safeid="${safeId}" data-filename="${escapedName}"
                          loading="lazy" />
                 </div>
             `;
-
-            // Use requestIdleCallback for non-blocking image loading
-            if ('requestIdleCallback' in window) {
-                requestIdleCallback(() => this.loadImageAsync(file.r2_key, safeId), { timeout: 2000 });
-            } else {
-                requestAnimationFrame(() => this.loadImageAsync(file.r2_key, safeId));
-            }
         }
 
         return `
@@ -457,6 +451,79 @@ const UI = {
     },
 
     // 异步加载图片 - 带缓存优化
+    setupImageObserver() {
+        if (typeof IntersectionObserver === 'undefined') {
+            this.imageObserver = null;
+            return;
+        }
+
+        this.imageObserver = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                if (!entry.isIntersecting) continue;
+
+                const target = entry.target;
+                const r2Key = target.dataset.r2key;
+                const safeId = target.dataset.safeid;
+                this.imageObserver.unobserve(target);
+
+                if (r2Key && safeId) {
+                    this.enqueueImageLoad(r2Key, safeId);
+                }
+            }
+        }, {
+            root: this.elements.messageList || null,
+            rootMargin: '200px 0px',
+            threshold: 0.01
+        });
+    },
+
+    registerImagePreviews() {
+        const listEl = this.elements.messageList;
+        if (!listEl) return;
+
+        this.pendingImageTasks = [];
+
+        if (this.imageObserver) {
+            this.imageObserver.disconnect();
+        }
+
+        const images = listEl.querySelectorAll('img[data-action="preview-image"][data-r2key][data-safeid]');
+        images.forEach((imageElement) => {
+            if (this.imageObserver) {
+                this.imageObserver.observe(imageElement);
+                return;
+            }
+
+            const r2Key = imageElement.dataset.r2key;
+            const safeId = imageElement.dataset.safeid;
+            if (r2Key && safeId) {
+                this.enqueueImageLoad(r2Key, safeId);
+            }
+        });
+    },
+
+    enqueueImageLoad(r2Key, safeId) {
+        if (!r2Key || !safeId) return;
+
+        this.pendingImageTasks.push({ r2Key, safeId });
+        this.processImageLoadQueue();
+    },
+
+    processImageLoadQueue() {
+        while (this.activeImageLoads < this.maxConcurrentImageLoads && this.pendingImageTasks.length > 0) {
+            const task = this.pendingImageTasks.shift();
+            if (!task) break;
+
+            this.activeImageLoads += 1;
+            this.loadImageAsync(task.r2Key, task.safeId)
+                .catch(() => {})
+                .finally(() => {
+                    this.activeImageLoads = Math.max(0, this.activeImageLoads - 1);
+                    this.processImageLoadQueue();
+                });
+        }
+    },
+
     async loadImageAsync(r2Key, safeId) {
         try {
             const loadingElement = document.getElementById(`loading-${safeId}`);
@@ -475,7 +542,6 @@ const UI = {
                 if (this.imageCache.size > 50) {
                     // Remove oldest entry
                     const firstKey = this.imageCache.keys().next().value;
-                    URL.revokeObjectURL(this.imageCache.get(firstKey));
                     this.imageCache.delete(firstKey);
                 }
                 this.imageCache.set(r2Key, blobUrl);

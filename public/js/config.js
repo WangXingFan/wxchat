@@ -25,7 +25,7 @@ const CONFIG = {
 
     // UI 配置
     UI: {
-        FILE_LOAD_LIMIT: 50,
+        FILE_LOAD_LIMIT: 20,
         ANIMATION_DURATION: 100
     },
 
