@@ -225,7 +225,7 @@ const UI = {
         let imagePreview = '';
         if (isImage && msg.r2_key) {
             imagePreview = `
-                <div class="image-preview" id="preview-${safeId}">
+                <div class="image-preview" id="preview-${safeId}" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-safeid="${safeId}">
                     <div class="image-loading" id="loading-${safeId}">
                         <div class="loading-spinner" aria-hidden="true"></div>
                         <button class="download-btn" data-action="download" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-filename="${escapedName}" aria-label="下载原图">下载原图</button>
@@ -333,7 +333,7 @@ const UI = {
         let imagePreview = '';
         if (isImage) {
             imagePreview = `
-                <div class="image-preview" id="preview-${safeId}">
+                <div class="image-preview" id="preview-${safeId}" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-safeid="${safeId}">
                     <div class="image-loading" id="loading-${safeId}">
                         <div class="loading-spinner" aria-hidden="true"></div>
                         <button class="download-btn" data-action="download" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-filename="${escapedName}" aria-label="下载原图">下载原图</button>
@@ -520,15 +520,15 @@ const UI = {
             this.imageObserver.disconnect();
         }
 
-        const images = listEl.querySelectorAll('img[data-action="preview-image"][data-r2key][data-safeid]');
-        images.forEach((imageElement) => {
+        const previews = listEl.querySelectorAll('.image-preview[data-r2key][data-safeid]');
+        previews.forEach((previewEl) => {
             if (this.imageObserver) {
-                this.imageObserver.observe(imageElement);
+                this.imageObserver.observe(previewEl);
                 return;
             }
 
-            const r2Key = imageElement.dataset.r2key;
-            const safeId = imageElement.dataset.safeid;
+            const r2Key = previewEl.dataset.r2key;
+            const safeId = previewEl.dataset.safeid;
             if (r2Key && safeId) {
                 this.enqueueImageLoad(r2Key, safeId);
             }
