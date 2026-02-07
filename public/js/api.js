@@ -241,7 +241,7 @@ const API = {
 
             const authHeaders = Auth ? Auth.addAuthHeader({}) : {};
 
-            const response = await fetch(previewUrl, {
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: authHeaders
             });
