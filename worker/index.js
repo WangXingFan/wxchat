@@ -640,26 +640,34 @@ api.delete('/messages/:id', async (c) => {
       }, 404)
     }
 
-    // 如果是文件消息，同时删除文件
-    if (message.type === 'file' && message.file_id) {
-      const fileStmt = DB.prepare('SELECT r2_key FROM files WHERE id = ?')
-      const file = await fileStmt.bind(message.file_id).first()
+    const fileId = message.file_id
+    const isFileMessage = message.type === 'file' && !!fileId
+    let file = null
 
-      if (file) {
+    if (isFileMessage) {
+      const fileStmt = DB.prepare('SELECT id, r2_key FROM files WHERE id = ?')
+      file = await fileStmt.bind(fileId).first()
+    }
+
+    // 先删消息，避免外键约束导致500
+    const deleteStmt = DB.prepare('DELETE FROM messages WHERE id = ?')
+    await deleteStmt.bind(id).run()
+
+    if (isFileMessage && file) {
+      const refCountStmt = DB.prepare('SELECT COUNT(*) as total FROM messages WHERE file_id = ?')
+      const refCount = await refCountStmt.bind(fileId).first()
+
+      if ((refCount?.total || 0) === 0) {
+        const deleteFileStmt = DB.prepare('DELETE FROM files WHERE id = ?')
+        await deleteFileStmt.bind(fileId).run()
+
         try {
           await R2.delete(file.r2_key)
         } catch (r2Error) {
           console.error('R2删除失败:', r2Error)
         }
-
-        const deleteFileStmt = DB.prepare('DELETE FROM files WHERE id = ?')
-        await deleteFileStmt.bind(message.file_id).run()
       }
     }
-
-    // 删除消息记录
-    const deleteStmt = DB.prepare('DELETE FROM messages WHERE id = ?')
-    await deleteStmt.bind(id).run()
 
     return c.json({
       success: true,
@@ -691,16 +699,20 @@ api.delete('/files/:r2Key', async (c) => {
       }, 404)
     }
 
-    // 从R2删除文件
+    // 先删引用该文件的消息，避免外键约束导致500
+    const deleteMessagesStmt = DB.prepare('DELETE FROM messages WHERE file_id = ?')
+    await deleteMessagesStmt.bind(fileInfo.id).run()
+
+    // 再删文件记录
+    const deleteFileStmt = DB.prepare('DELETE FROM files WHERE r2_key = ?')
+    await deleteFileStmt.bind(r2Key).run()
+
+    // 最后删R2对象（失败不阻断）
     try {
       await R2.delete(r2Key)
     } catch (r2Error) {
       console.error('R2删除失败:', r2Error)
     }
-
-    // 从数据库删除记录
-    const deleteStmt = DB.prepare('DELETE FROM files WHERE r2_key = ?')
-    await deleteStmt.bind(r2Key).run()
 
     return c.json({
       success: true,
