@@ -4,34 +4,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>登录 - 文件传输助手</title>
-    <meta name="theme-color" content="#00b894">
+    <meta name="theme-color" content="#0F172A">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📁</text></svg>">
     <style>
-        /* ===== Glassmorphism Design System ===== */
+        /* ===== Cyber Aurora Design System ===== */
+        /* Cinematic Glassmorphism - Dark Mode */
         :root {
-            --color-primary: #00b894;
-            --color-primary-hover: #00a085;
-            --color-primary-light: rgba(0, 184, 148, 0.15);
-            --color-secondary: #00cec9;
-            --color-accent: #81ecec;
-            --color-danger: #ff6b6b;
-            --color-warning: #fdcb6e;
-            --color-text: #2d3436;
-            --color-text-secondary: #636e72;
-            --color-text-muted: #b2bec3;
-            --glass-bg: rgba(255, 255, 255, 0.25);
-            --glass-bg-strong: rgba(255, 255, 255, 0.4);
-            --glass-border: rgba(255, 255, 255, 0.3);
-            --glass-shadow: 0 8px 32px rgba(0, 184, 148, 0.15);
-            --bg-gradient: linear-gradient(135deg, #00b894 0%, #00cec9 50%, #81ecec 100%);
-            --radius-md: 12px;
-            --radius-lg: 20px;
-            --radius-xl: 28px;
+            /* Base Colors - Deep Space */
+            --canvas: #0F172A;
+            --surface: rgba(30, 41, 59, 0.70);
+            --surface-elevated: rgba(30, 41, 59, 0.85);
+            --overlay: rgba(255, 255, 255, 0.05);
+            --overlay-hover: rgba(255, 255, 255, 0.08);
+
+            /* Primary - Indigo/Violet Aurora */
+            --color-indigo: #6366F1;
+            --color-violet: #8B5CF6;
+            --color-primary: #6366F1;
+            --color-primary-hover: #818CF8;
+            --color-primary-light: rgba(99, 102, 241, 0.15);
+            --gradient-primary: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            --glow-primary: 0 0 20px rgba(99, 102, 241, 0.4);
+            --glow-primary-strong: 0 0 30px rgba(99, 102, 241, 0.6);
+
+            /* Functional Colors */
+            --color-danger: #F43F5E;
+            --color-warning: #F59E0B;
+
+            /* Text Colors */
+            --text-primary: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+
+            /* Glass Effect */
+            --glass-bg: rgba(30, 41, 59, 0.70);
+            --glass-bg-strong: rgba(30, 41, 59, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+            /* Radius & Transitions */
+            --radius-md: 16px;
+            --radius-lg: 24px;
             --radius-full: 9999px;
-            --shadow-glow: 0 0 40px rgba(0, 184, 148, 0.3);
-            --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --shadow-ambient: 0 20px 50px rgba(0, 0, 0, 0.5);
+            --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
             --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            --font-stack: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            --transition-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            --font-stack: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
         }
 
         *, *::before, *::after {
@@ -42,8 +61,7 @@
 
         body {
             font-family: var(--font-stack);
-            background: var(--bg-gradient);
-            background-attachment: fixed;
+            background: var(--canvas);
             min-height: 100vh;
             min-height: 100dvh;
             display: flex;
@@ -52,66 +70,107 @@
             padding: 20px;
             -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
+            color: var(--text-primary);
         }
 
-        /* Animated Background Orbs */
+        /* Aurora Background - Flowing Gradient Orbs */
         body::before,
         body::after {
             content: '';
             position: fixed;
             border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.5;
+            filter: blur(120px);
+            opacity: 0.4;
             z-index: -1;
-            animation: float 20s ease-in-out infinite;
+            animation: aurora 25s ease-in-out infinite;
+            pointer-events: none;
         }
 
         body::before {
-            width: 500px;
-            height: 500px;
-            background: rgba(0, 184, 148, 0.5);
-            top: -150px;
+            width: 600px;
+            height: 600px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.5), rgba(139, 92, 246, 0.3));
+            top: -200px;
             left: -150px;
         }
 
         body::after {
-            width: 400px;
-            height: 400px;
-            background: rgba(129, 236, 236, 0.5);
-            bottom: -100px;
-            right: -100px;
-            animation-delay: -10s;
+            width: 500px;
+            height: 500px;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.4), rgba(99, 102, 241, 0.2));
+            bottom: -150px;
+            right: -150px;
+            animation-delay: -12s;
         }
 
-        @keyframes float {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            25% { transform: translate(30px, 30px) scale(1.05); }
-            50% { transform: translate(0, 60px) scale(1); }
-            75% { transform: translate(-30px, 30px) scale(0.95); }
+        /* Third Aurora Layer */
+        .aurora-layer {
+            position: fixed;
+            width: 400px;
+            height: 400px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(99, 102, 241, 0.15));
+            border-radius: 50%;
+            filter: blur(100px);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: -1;
+            animation: aurora-pulse 20s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes aurora {
+            0%, 100% {
+                transform: translate(0, 0) scale(1) rotate(0deg);
+                opacity: 0.4;
+            }
+            25% {
+                transform: translate(60px, 40px) scale(1.1) rotate(5deg);
+                opacity: 0.5;
+            }
+            50% {
+                transform: translate(20px, 80px) scale(1) rotate(-3deg);
+                opacity: 0.35;
+            }
+            75% {
+                transform: translate(-40px, 30px) scale(0.9) rotate(2deg);
+                opacity: 0.45;
+            }
+        }
+
+        @keyframes aurora-pulse {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.2;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.3);
+                opacity: 0.3;
+            }
         }
 
         :focus-visible {
-            outline: 2px solid var(--color-primary);
+            outline: 2px solid var(--color-indigo);
             outline-offset: 3px;
         }
 
         .login-container {
-            background: var(--glass-bg-strong);
+            background: var(--surface-elevated);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--glass-shadow), var(--shadow-glow);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-ambient), var(--glow-primary);
             width: 100%;
             max-width: 420px;
             padding: 48px 40px;
-            animation: cardSlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: cardSlideUp 0.6s var(--transition-spring);
         }
 
         @keyframes cardSlideUp {
             from {
                 opacity: 0;
-                transform: translateY(30px) scale(0.95);
+                transform: translateY(40px) scale(0.9);
             }
             to {
                 opacity: 1;
@@ -127,36 +186,40 @@
         .login-icon {
             width: 80px;
             height: 80px;
-            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            background: var(--gradient-primary);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 20px;
             font-size: 36px;
-            box-shadow: 0 8px 24px rgba(0, 184, 148, 0.4);
+            box-shadow: var(--glow-primary-strong);
             animation: iconPulse 3s ease-in-out infinite;
         }
 
         @keyframes iconPulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 8px 24px rgba(0, 184, 148, 0.4); }
-            50% { transform: scale(1.05); box-shadow: 0 12px 32px rgba(0, 184, 148, 0.5); }
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 40px rgba(99, 102, 241, 0.7);
+            }
         }
 
         .login-title {
             font-size: 26px;
             font-weight: 700;
-            background: linear-gradient(135deg, var(--color-text), var(--color-text-secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: var(--text-primary);
             margin-bottom: 8px;
             letter-spacing: -0.5px;
+            text-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
         }
 
         .login-subtitle {
             font-size: 15px;
-            color: var(--color-text-muted);
+            color: var(--text-secondary);
         }
 
         .form-group {
@@ -167,7 +230,7 @@
             display: block;
             font-size: 14px;
             font-weight: 600;
-            color: var(--color-text);
+            color: var(--text-primary);
             margin-bottom: 10px;
         }
 
@@ -185,24 +248,24 @@
             font-family: inherit;
             transition: all var(--transition-fast);
             outline: none;
-            background: var(--glass-bg);
+            background: var(--overlay);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
-            color: var(--color-text);
+            color: var(--text-primary);
         }
 
         .form-input::placeholder {
-            color: var(--color-text-muted);
+            color: var(--text-muted);
         }
 
         .form-input:focus {
-            border-color: var(--color-primary);
-            box-shadow: 0 0 0 4px var(--color-primary-light), var(--shadow-glow);
-            background: var(--glass-bg-strong);
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 0 4px var(--color-primary-light), var(--glow-primary);
+            background: var(--overlay-hover);
         }
 
         .form-input:disabled {
-            background: var(--glass-bg);
+            background: var(--overlay);
             cursor: not-allowed;
             opacity: 0.6;
         }
@@ -217,20 +280,20 @@
             font-size: 18px;
             cursor: pointer;
             padding: 6px;
-            color: var(--color-text-muted);
+            color: var(--text-muted);
             border-radius: var(--radius-md);
             transition: all var(--transition-fast);
         }
 
         .password-toggle:hover {
-            color: var(--color-primary);
+            color: var(--color-indigo);
             background: var(--color-primary-light);
         }
 
         .login-button {
             width: 100%;
             padding: 16px;
-            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            background: var(--gradient-primary);
             color: #fff;
             border: none;
             border-radius: var(--radius-md);
@@ -239,7 +302,7 @@
             font-family: inherit;
             cursor: pointer;
             transition: all var(--transition-fast);
-            box-shadow: 0 6px 20px rgba(0, 184, 148, 0.4);
+            box-shadow: var(--glow-primary);
             position: relative;
             overflow: hidden;
         }
@@ -251,7 +314,7 @@
             left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
             transition: left 0.6s;
         }
 
@@ -261,7 +324,7 @@
 
         .login-button:hover {
             transform: translateY(-3px);
-            box-shadow: 0 10px 30px rgba(0, 184, 148, 0.5);
+            box-shadow: var(--glow-primary-strong);
         }
 
         .login-button:active {
@@ -269,7 +332,7 @@
         }
 
         .login-button:disabled {
-            background: var(--color-text-muted);
+            background: var(--text-muted);
             cursor: not-allowed;
             transform: none;
             box-shadow: none;
@@ -322,33 +385,33 @@
         }
 
         #errorMessage {
-            background: rgba(255, 107, 107, 0.15);
-            border: 1px solid rgba(255, 107, 107, 0.3);
+            background: rgba(244, 63, 94, 0.15);
+            border: 1px solid rgba(244, 63, 94, 0.3);
             color: var(--color-danger);
         }
 
         #warningMessage {
-            background: rgba(255, 212, 59, 0.15);
-            border: 1px solid rgba(255, 212, 59, 0.3);
-            color: #b8860b;
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: var(--color-warning);
         }
 
         .footer {
             text-align: center;
             margin-top: 28px;
             font-size: 13px;
-            color: var(--color-text-muted);
+            color: var(--text-muted);
         }
 
         @media (max-width: 480px) {
             body::before,
             body::after {
-                display: none;
+                opacity: 0.25;
             }
 
             .login-container {
                 padding: 36px 28px;
-                border-radius: var(--radius-lg);
+                border-radius: var(--radius-md);
             }
 
             .login-icon {
@@ -368,10 +431,19 @@
                 animation-iteration-count: 1 !important;
                 transition-duration: 0.01ms !important;
             }
+
+            body::before,
+            body::after,
+            .aurora-layer {
+                animation: none;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Aurora Background Layer -->
+    <div class="aurora-layer" aria-hidden="true"></div>
+
     <div class="login-container" role="main">
         <div class="login-header">
             <div class="login-icon" aria-hidden="true">📁</div>
