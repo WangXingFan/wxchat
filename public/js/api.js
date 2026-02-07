@@ -291,7 +291,7 @@ const API = {
         }
 
         try {
-            const url = `${CONFIG.API.ENDPOINTS.FILES_DOWNLOAD}/${r2Key}`;
+            const url = `${CONFIG.API.ENDPOINTS.FILES_PREVIEW}/${r2Key}`;
             const authHeaders = Auth ? Auth.addAuthHeader({}) : {};
 
             const response = await fetch(url, {

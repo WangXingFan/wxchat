@@ -9,6 +9,7 @@ const CONFIG = {
             FILES: '/api/files',
             FILES_UPLOAD: '/api/files/upload',
             FILES_DOWNLOAD: '/api/files/download',
+            FILES_PREVIEW: '/api/files/preview',
             AUTH_LOGIN: '/api/auth/login',
             AUTH_VERIFY: '/api/auth/verify',
             AUTH_LOGOUT: '/api/auth/logout'

@@ -60,6 +60,32 @@ const AuthUtils = {
   }
 }
 
+const IMAGE_MIME_BY_EXTENSION = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+  avif: 'image/avif',
+  heic: 'image/heic',
+  heif: 'image/heif'
+}
+
+const resolveMimeType = (mimeType, fileName = '') => {
+  if (mimeType && mimeType !== 'application/octet-stream') {
+    return mimeType
+  }
+
+  const extension = fileName.split('.').pop()?.toLowerCase()
+  if (extension && IMAGE_MIME_BY_EXTENSION[extension]) {
+    return IMAGE_MIME_BY_EXTENSION[extension]
+  }
+
+  return mimeType || 'application/octet-stream'
+}
+
 // 鉴权中间件
 const authMiddleware = async (c, next) => {
   // 跳过登录和静态资源
@@ -239,12 +265,13 @@ api.post('/files/upload', async (c) => {
     const randomStr = Math.random().toString(36).substring(2)
     const fileExtension = file.name.split('.').pop() || 'bin'
     const r2Key = `${timestamp}-${randomStr}.${fileExtension}`
+    const normalizedMimeType = resolveMimeType(file.type, file.name)
 
     // 上传到R2
     try {
       await R2.put(r2Key, file.stream(), {
         httpMetadata: {
-          contentType: file.type || 'application/octet-stream',
+          contentType: normalizedMimeType,
           contentDisposition: `attachment; filename="${file.name}"`
         }
       })
@@ -267,7 +294,7 @@ api.post('/files/upload', async (c) => {
         file.name,
         r2Key,
         file.size,
-        file.type || 'application/octet-stream',
+        normalizedMimeType,
         r2Key,
         deviceId
       ).run()
@@ -348,9 +375,11 @@ api.get('/files/download/:r2Key', async (c) => {
     `)
     await updateStmt.bind(r2Key).run()
 
+    const downloadMimeType = resolveMimeType(fileInfo.mime_type, fileInfo.original_name || r2Key)
+
     return new Response(object.body, {
       headers: {
-        'Content-Type': fileInfo.mime_type,
+        'Content-Type': downloadMimeType,
         'Content-Disposition': `attachment; filename="${fileInfo.original_name}"`,
         'Content-Length': fileInfo.file_size.toString()
       }
@@ -453,6 +482,51 @@ api.post('/messages', async (c) => {
     })
   } catch (error) {
     console.error('发送消息失败:', error)
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500)
+  }
+})
+
+// 文件预览（用于图片内联展示）
+api.get('/files/preview/:r2Key', async (c) => {
+  try {
+    const { DB, R2 } = c.env
+    const r2Key = c.req.param('r2Key')
+
+    const stmt = DB.prepare(`
+      SELECT * FROM files WHERE r2_key = ?
+    `)
+    const fileInfo = await stmt.bind(r2Key).first()
+
+    if (!fileInfo) {
+      return c.json({
+        success: false,
+        error: '文件不存在'
+      }, 404)
+    }
+
+    const object = await R2.get(r2Key)
+
+    if (!object) {
+      return c.json({
+        success: false,
+        error: '文件不存在'
+      }, 404)
+    }
+
+    const previewMimeType = resolveMimeType(fileInfo.mime_type, fileInfo.original_name || r2Key)
+
+    return new Response(object.body, {
+      headers: {
+        'Content-Type': previewMimeType,
+        'Content-Disposition': `inline; filename="${fileInfo.original_name}"`,
+        'Content-Length': fileInfo.file_size.toString(),
+        'Cache-Control': 'private, max-age=3600'
+      }
+    })
+  } catch (error) {
     return c.json({
       success: false,
       error: error.message
