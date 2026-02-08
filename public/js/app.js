@@ -23,6 +23,8 @@ class FileTransferApp {
 
             await this.loadMessages();
 
+            PWA.init();
+
             this.isInitialized = true;
         } catch (error) {
             this.showInitError(error);
