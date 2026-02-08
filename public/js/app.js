@@ -91,7 +91,7 @@ class FileTransferApp {
 
         const btn = document.createElement('button');
         btn.textContent = '重新加载';
-        btn.style.cssText = 'background:#07c160;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:15px;';
+        btn.style.cssText = 'background:linear-gradient(135deg,#00f0ff,#bf5af2);color:#000;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:700;';
         btn.addEventListener('click', () => location.reload());
         errorDiv.appendChild(btn);
 
