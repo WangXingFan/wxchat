@@ -319,6 +319,9 @@ const uploadStyles = `
         align-items: center;
         gap: 1rem;
         box-shadow: 0 4px 16px rgba(0, 184, 148, 0.1);
+        box-sizing: border-box;
+        overflow: hidden;
+        max-width: 100%;
     }
 
     .upload-spinner {
@@ -357,7 +360,8 @@ const uploadStyles = `
 
     .upload-progress {
         width: 140px;
-        flex-shrink: 0;
+        flex-shrink: 1;
+        min-width: 60px;
     }
 
     .progress-bar {
