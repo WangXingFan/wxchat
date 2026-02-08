@@ -746,6 +746,8 @@
             border-radius: var(--radius-lg);
             max-width: 90%;
             max-height: 90%;
+            display: flex;
+            flex-direction: column;
             overflow: hidden;
             box-shadow: var(--shadow-ambient), var(--glow-primary);
             animation: modalSlideUp 0.4s var(--transition-spring);
@@ -769,6 +771,7 @@
             padding: 16px 20px;
             border-bottom: var(--glass-border);
             background: var(--overlay);
+            flex-shrink: 0;
         }
 
         .image-modal-header span {
@@ -805,11 +808,14 @@
             align-items: center;
             justify-content: center;
             background: rgba(0, 0, 0, 0.3);
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
         }
 
         .image-modal-body img {
             max-width: 100%;
-            max-height: 70vh;
+            max-height: 100%;
             border-radius: var(--radius-sm);
             box-shadow: var(--shadow-lg);
         }
@@ -819,6 +825,7 @@
             border-top: var(--glass-border);
             text-align: center;
             background: var(--overlay);
+            flex-shrink: 0;
         }
 
         .image-modal-footer button {
