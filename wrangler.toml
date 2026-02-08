@@ -18,15 +18,15 @@ database_id = "c144db0d-7879-41d8-9eea-b701ba0bf4bf"
 binding = "R2"
 bucket_name = "wxchat"
 
-# 环境变量配置（用于鉴权）
+# 环境变量配置
 [vars]
-# 访问密码（明文，直接在Cloudflare Workers控制台配置）
-ACCESS_PASSWORD = "wxchat2024"
-# JWT密钥（用于会话管理）
-JWT_SECRET = "your-super-secret-jwt-key-change-this-in-production"
 # 会话过期时间（小时）
 SESSION_EXPIRE_HOURS = "24"
 # 最大登录尝试次数
 MAX_LOGIN_ATTEMPTS = "5"
+
+# 敏感变量请用 wrangler secret 管理，不要写在这里：
+# wrangler secret put ACCESS_PASSWORD
+# wrangler secret put JWT_SECRET
 
 
