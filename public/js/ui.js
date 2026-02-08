@@ -231,8 +231,7 @@ const UI = {
                     </div>
                     <img id="img-${safeId}" alt="${escapedName}"
                          style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
-                         data-action="preview-image" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-safeid="${safeId}" data-filename="${escapedName}"
-                         loading="lazy" />
+                         data-action="preview-image" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-safeid="${safeId}" data-filename="${escapedName}" />
                 </div>
             `;
         }
@@ -338,8 +337,7 @@ const UI = {
                     </div>
                     <img id="img-${safeId}" alt="${escapedName}"
                          style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
-                         data-action="preview-image" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-safeid="${safeId}" data-filename="${escapedName}"
-                         loading="lazy" />
+                         data-action="preview-image" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-safeid="${safeId}" data-filename="${escapedName}" />
                 </div>
             `;
         }

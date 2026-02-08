@@ -302,10 +302,11 @@ api.post('/files/upload', async (c) => {
 
     // 上传到R2
     try {
+      const safeUploadName = encodeURIComponent(file.name).replace(/%20/g, '+')
       await R2.put(r2Key, file.stream(), {
         httpMetadata: {
           contentType: normalizedMimeType,
-          contentDisposition: `attachment; filename="${file.name}"`
+          contentDisposition: `attachment; filename*=UTF-8''${safeUploadName}`
         }
       })
     } catch (r2Error) {
@@ -410,10 +411,11 @@ api.get('/files/download/:r2Key', async (c) => {
 
     const downloadMimeType = resolveMimeType(fileInfo.mime_type, fileInfo.original_name || r2Key)
 
+    const safeDownloadName = encodeURIComponent(fileInfo.original_name || r2Key).replace(/%20/g, '+')
     return new Response(object.body, {
       headers: {
         'Content-Type': downloadMimeType,
-        'Content-Disposition': `attachment; filename="${fileInfo.original_name}"`,
+        'Content-Disposition': `attachment; filename*=UTF-8''${safeDownloadName}`,
         'Content-Length': fileInfo.file_size.toString()
       }
     })
@@ -564,10 +566,11 @@ api.get('/files/preview/:r2Key', async (c) => {
       })
     }
 
+    const safeFileName = encodeURIComponent(fileInfo.original_name || r2Key).replace(/%20/g, '+')
     return new Response(object.body, {
       headers: {
         'Content-Type': previewMimeType,
-        'Content-Disposition': `inline; filename="${fileInfo.original_name}"`,
+        'Content-Disposition': `inline; filename*=UTF-8''${safeFileName}`,
         'Content-Length': fileInfo.file_size.toString(),
         'Cache-Control': 'private, max-age=3600',
         ETag: etag,
