@@ -981,6 +981,20 @@ bucket_name = "wxchat"
 </details>
 
 <details>
+<summary><strong>🖼️ 上传图片不能预览</strong></summary>
+
+**症状**: 图片上传成功，但消息列表没有缩略图，点击也无法打开预览。
+
+**原因**: 某些设备/浏览器上传时会带上不准确的 `mime_type`（如 `application/octet-stream`），旧逻辑仅依赖 `image/*` 判断，导致未触发图片预览。
+
+**解决方案**:
+1. 前端已改为 `MIME + 文件后缀` 双重识别（如 `jpg/jpeg/jfif/png/webp/heic`）。
+2. 后端已补充 `jfif -> image/jpeg` 映射，避免被识别为非图片。
+3. 部署更新后，建议强制刷新浏览器再重新上传测试。
+
+</details>
+
+<details>
 <summary><strong>🌐 CORS 跨域问题</strong></summary>
 
 **症状**: 浏览器控制台显示CORS错误

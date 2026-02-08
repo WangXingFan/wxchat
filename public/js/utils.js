@@ -109,9 +109,24 @@ const Utils = {
         return this.getFileIcon(null, fileName);
     },
 
-    // 检查是否为图片文件
-    isImageFile(mimeType) {
-        return mimeType && mimeType.startsWith('image/');
+    // 检查是否为图片文件（兼容 MIME 缺失/错误场景）
+    isImageFile(mimeType, fileName = '') {
+        const normalizedMimeType = typeof mimeType === 'string' ? mimeType.trim().toLowerCase() : '';
+        if (normalizedMimeType.startsWith('image/')) {
+            return true;
+        }
+
+        const extension = this.getFileExtension(fileName);
+        if (!extension) {
+            return false;
+        }
+
+        const imageExtensions = new Set([
+            'jpg', 'jpeg', 'jfif', 'png', 'gif', 'webp', 'bmp',
+            'svg', 'avif', 'heic', 'heif', 'ico', 'tif', 'tiff'
+        ]);
+
+        return imageExtensions.has(extension);
     },
 
     // 检查文件大小

@@ -63,6 +63,7 @@ const AuthUtils = {
 const IMAGE_MIME_BY_EXTENSION = {
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
+  jfif: 'image/jpeg',
   png: 'image/png',
   gif: 'image/gif',
   webp: 'image/webp',

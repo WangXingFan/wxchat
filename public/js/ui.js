@@ -217,7 +217,7 @@ const UI = {
         const fileIcon = Utils.getFileIcon(msg.mime_type, msg.file_name);
         const fileSize = Utils.formatFileSize(msg.file_size);
         const time = Utils.formatDateTime(msg.timestamp);
-        const isImage = Utils.isImageFile(msg.mime_type);
+        const isImage = Utils.isImageFile(msg.mime_type, msg.file_name);
         const safeId = this.createSafeId(msg.r2_key || '');
         const escapedName = Utils.escapeHtml(msg.file_name || '未知文件');
         const id = Number(msg.id);
@@ -326,7 +326,7 @@ const UI = {
         const fileIcon = Utils.getFileIcon(file.mime_type, file.original_name);
         const fileSize = Utils.formatFileSize(file.file_size);
         const uploadTime = Utils.formatDateTime(file.upload_time);
-        const isImage = Utils.isImageFile(file.mime_type);
+        const isImage = Utils.isImageFile(file.mime_type, file.original_name);
         const safeId = this.createSafeId(file.r2_key);
         const escapedName = Utils.escapeHtml(file.original_name);
 
