@@ -1,4 +1,4 @@
-// API 接口封装 - 支持文件和文本消�?
+// API 接口封装 - 支持文件和文本消�?
 
 const API = {
     // 通用请求方法
@@ -109,7 +109,7 @@ const API = {
         }
     },
 
-    // 获取消息列表（文�?文件混合�?
+    // 获取消息列表（文�?文件混合�?
     async getMessages(limit = CONFIG.UI.FILE_LOAD_LIMIT, offset = 0) {
         try {
             const response = await this.get(CONFIG.API.ENDPOINTS.MESSAGES, {
@@ -123,7 +123,7 @@ const API = {
         }
     },
 
-    // 发送文本消�?
+    // 发送文本消�?
     async sendMessage(content, deviceId) {
         try {
             if (!content || !content.trim()) {
@@ -141,7 +141,7 @@ const API = {
                 throw new Error(response.error || CONFIG.ERRORS.MESSAGE_SEND_FAILED);
             }
         } catch (error) {
-            console.error('发送消息失�?', error);
+            console.error('发送消息失�?', error);
             throw error;
         }
     },
@@ -291,14 +291,9 @@ const API = {
         }
 
         try {
-            const encodedKey = encodeURIComponent(r2Key);
-            const token = Auth && typeof Auth.getToken === 'function' ? Auth.getToken() : null;
-            const query = token ? `?token=${encodeURIComponent(token)}` : '';
-            const previewUrl = `${CONFIG.API.ENDPOINTS.FILES_PREVIEW}/${encodedKey}${query}`;
-
-            this.imageBlobCache.set(r2Key, previewUrl);
-
-            return previewUrl;
+            const blobUrl = await this.fetchImageBlobUrl(r2Key);
+            this.imageBlobCache.set(r2Key, blobUrl);
+            return blobUrl;
         } catch (error) {
             console.error('获取图片blob URL失败:', error);
             throw error;
@@ -316,7 +311,7 @@ const API = {
         });
 
         if (!response.ok) {
-            throw new Error(`��ȡͼƬʧ��: ${response.status}`);
+            throw new Error(`获取图片失败: ${response.status}`);
         }
 
         const blob = await response.blob();

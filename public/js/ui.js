@@ -228,7 +228,6 @@ const UI = {
                 <div class="image-preview" id="preview-${safeId}" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-safeid="${safeId}">
                     <div class="image-loading" id="loading-${safeId}">
                         <div class="loading-spinner" aria-hidden="true"></div>
-                        <button class="download-btn" data-action="download" data-r2key="${Utils.escapeHtml(msg.r2_key)}" data-filename="${escapedName}" aria-label="下载原图">下载原图</button>
                     </div>
                     <img id="img-${safeId}" alt="${escapedName}"
                          style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
@@ -336,7 +335,6 @@ const UI = {
                 <div class="image-preview" id="preview-${safeId}" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-safeid="${safeId}">
                     <div class="image-loading" id="loading-${safeId}">
                         <div class="loading-spinner" aria-hidden="true"></div>
-                        <button class="download-btn" data-action="download" data-r2key="${Utils.escapeHtml(file.r2_key)}" data-filename="${escapedName}" aria-label="下载原图">下载原图</button>
                     </div>
                     <img id="img-${safeId}" alt="${escapedName}"
                          style="display: none; max-width: 200px; max-height: 150px; border-radius: 10px; margin-top: 8px;"
@@ -443,37 +441,18 @@ const UI = {
                 if (loading) loading.style.display = 'none';
                 img.style.display = 'block';
             };
-            img.onerror = async () => {
-                try {
-                    const fallbackBlobUrl = await API.fetchImageBlobUrl(r2Key);
-                    img.onerror = null;
-                    img.src = fallbackBlobUrl;
-                } catch (fallbackError) {
-                    console.error('模态图预览失败:', fallbackError);
-                    if (loading) {
-                        loading.textContent = '图片预览失败';
-                    }
-                }
-            };
-            img.src = blobUrl;
-        }).catch(async (error) => {
-            console.error('获取模态预览地址失败:', error);
-            const img = modal.querySelector('#modal-img');
-            const loading = modal.querySelector('#modal-loading');
-            if (!img) return;
-
-            try {
-                const fallbackBlobUrl = await API.fetchImageBlobUrl(r2Key);
-                img.onload = () => {
-                    if (loading) loading.style.display = 'none';
-                    img.style.display = 'block';
-                };
-                img.src = fallbackBlobUrl;
-            } catch (fallbackError) {
-                console.error('模态图降级加载失败:', fallbackError);
+            img.onerror = () => {
+                console.error('模态图预览失败');
                 if (loading) {
                     loading.textContent = '图片预览失败';
                 }
+            };
+            img.src = blobUrl;
+        }).catch(error => {
+            console.error('获取模态预览地址失败:', error);
+            const loading = modal.querySelector('#modal-loading');
+            if (loading) {
+                loading.textContent = '图片预览失败';
             }
         });
     },
@@ -590,28 +569,35 @@ const UI = {
             const loadingElement = document.getElementById(`loading-${safeId}`);
             const imageElement = document.getElementById(`img-${safeId}`);
 
-            if (imageElement) {
-                imageElement.style.display = 'none';
-                imageElement.removeAttribute('src');
-            }
+            // 清除可能损坏的缓存，重试一次
+            this.imageCache.delete(r2Key);
+            API.imageBlobCache.delete(r2Key);
 
             try {
-                const fallbackBlobUrl = await API.fetchImageBlobUrl(r2Key);
+                const retryBlobUrl = await API.getImageBlobUrl(r2Key);
                 if (imageElement) {
-                    imageElement.src = fallbackBlobUrl;
+                    await new Promise((resolve, reject) => {
+                        imageElement.onload = resolve;
+                        imageElement.onerror = reject;
+                        imageElement.src = retryBlobUrl;
+                    });
                     imageElement.style.display = 'block';
                 }
                 if (loadingElement) {
                     loadingElement.style.display = 'none';
                 }
+                this.imageCache.set(r2Key, retryBlobUrl);
                 return;
-            } catch (fallbackError) {
-                console.error('图片加载降级失败:', fallbackError);
+            } catch (retryError) {
+                console.error('图片加载重试失败:', retryError);
             }
 
+            if (imageElement) {
+                imageElement.style.display = 'none';
+                imageElement.removeAttribute('src');
+            }
             if (loadingElement) {
-                loadingElement.innerHTML = '<span style="color: #999; font-size: 13px;">图片预览失败</span>' +
-                    `<button class="download-btn" data-action="download" data-r2key="${r2Key}" data-filename="image" aria-label="下载原图">下载原图</button>`;
+                loadingElement.innerHTML = '<span style="color: #999; font-size: 13px;">图片预览失败</span>';
             }
         }
     },
