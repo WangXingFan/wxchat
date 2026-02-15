@@ -2,13 +2,12 @@
 
 # 微信文件传输助手 Web 版
 
-[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange.svg)](https://workers.cloudflare.com/)
 [![Hono](https://img.shields.io/badge/Hono-Framework-blue.svg)](https://hono.dev/)
 
 一个仿微信「文件传输助手」的 Web 应用，基于 Cloudflare Workers 边缘计算，支持跨设备文本消息和文件传输。
 
-[快速部署](#快速开始) · [使用指南](#使用指南) · [问题反馈](https://github.com/xiyewuqiu/wxchat/issues)
+[快速部署](#快速开始) · [使用指南](#使用指南) · [问题反馈](https://github.com/WangXingFan/wxchat/issues)
 
 </div>
 
@@ -74,7 +73,7 @@ wxchat/
 
 ```bash
 # 克隆项目
-git clone https://github.com/xiyewuqiu/wxchat.git
+git clone https://github.com/WangXingFan/wxchat.git
 cd wxchat
 
 # 安装依赖
@@ -177,9 +176,3 @@ npm run dev
 ## 致谢
 
 本项目基于 [xiyewuqiu](https://github.com/xiyewuqiu) 的原始工作开发。感谢上游项目的贡献。
-
-## 许可证
-
-[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — 仅限非商业用途，需署名，衍生作品需使用相同许可证。
-
-商业授权请联系：[xiyewuqiu@gmail.com](mailto:xiyewuqiu@gmail.com)
