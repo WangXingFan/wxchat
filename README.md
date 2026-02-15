@@ -164,6 +164,7 @@ npm run dev
 | `JWT_SECRET` | JWT 签名密钥（建议 32 位以上随机字符串） | `wrangler secret put` |
 | `SESSION_EXPIRE_HOURS` | 会话过期时间，默认 24 小时 | `wrangler.toml [vars]` |
 | `MAX_LOGIN_ATTEMPTS` | 最大登录尝试次数，默认 5 | `wrangler.toml [vars]` |
+| `LOGIN_LOCK_MINUTES` | Login lock duration in minutes (default: 15) | `wrangler.toml [vars]` |
 
 ## 故障排除
 

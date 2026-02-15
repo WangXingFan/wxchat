@@ -47,7 +47,27 @@ CREATE INDEX IF NOT EXISTS idx_files_r2_key ON files(r2_key);
 CREATE INDEX IF NOT EXISTS idx_files_upload_device ON files(upload_device_id);
 CREATE INDEX IF NOT EXISTS idx_devices_last_active ON devices(last_active DESC);
 
--- 插入默认设备（可选）
+-- Security tables
+-- Server-side login attempt records
+CREATE TABLE IF NOT EXISTS login_attempts (
+    client_ip TEXT PRIMARY KEY,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    last_attempt_ms INTEGER NOT NULL DEFAULT 0,
+    lock_until_ms INTEGER NOT NULL DEFAULT 0
+);
+
+-- Server-side revoked token records
+CREATE TABLE IF NOT EXISTS revoked_tokens (
+    token_hash TEXT PRIMARY KEY,
+    token_jti TEXT,
+    expires_at_ms INTEGER NOT NULL,
+    revoked_at_ms INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires ON revoked_tokens(expires_at_ms);
+
+-- Insert default devices (optional)
 INSERT OR IGNORE INTO devices (id, name) VALUES 
 ('web-default', 'Web浏览器'),
 ('mobile-default', '移动设备');
+

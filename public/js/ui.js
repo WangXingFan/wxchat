@@ -4,9 +4,6 @@ const UI = {
     // DOM 元素缓存
     elements: {},
 
-    // Image blob URL cache to avoid re-fetching
-    imageCache: new Map(),
-
     // Preview loading controls
     imageObserver: null,
     pendingImageTasks: [],
@@ -409,24 +406,32 @@ const UI = {
 
         // Close handlers
         const closeBtn = modal.querySelector('.close-btn');
-        closeBtn.addEventListener('click', () => modal.remove());
+        const closeModal = () => {
+            document.removeEventListener('keydown', handleEsc);
+            modal.remove();
+        };
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        };
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeModal);
+        }
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.remove();
+            if (e.target === modal) closeModal();
         });
 
         // Download handler
         const downloadBtn = modal.querySelector('.modal-download-btn');
-        downloadBtn.addEventListener('click', () => {
-            API.downloadFile(r2Key, fileName);
-        });
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+                API.downloadFile(r2Key, fileName);
+            });
+        }
 
         // ESC key to close
-        const handleEsc = (e) => {
-            if (e.key === 'Escape') {
-                modal.remove();
-                document.removeEventListener('keydown', handleEsc);
-            }
-        };
         document.addEventListener('keydown', handleEsc);
 
         // Load image
@@ -544,15 +549,7 @@ const UI = {
             loadingElement.style.display = 'flex';
             imageElement.style.display = 'none';
 
-            let blobUrl = this.imageCache.get(r2Key);
-            if (!blobUrl) {
-                blobUrl = await API.getImageBlobUrl(r2Key);
-                if (this.imageCache.size > 50) {
-                    const firstKey = this.imageCache.keys().next().value;
-                    this.imageCache.delete(firstKey);
-                }
-                this.imageCache.set(r2Key, blobUrl);
-            }
+            const blobUrl = await API.getImageBlobUrl(r2Key);
 
             await new Promise((resolve, reject) => {
                 imageElement.onload = resolve;
@@ -568,8 +565,7 @@ const UI = {
             const imageElement = document.getElementById(`img-${safeId}`);
 
             // 清除可能损坏的缓存，重试一次
-            this.imageCache.delete(r2Key);
-            API.imageBlobCache.delete(r2Key);
+            API.revokeImageBlobUrl(r2Key);
 
             try {
                 const retryBlobUrl = await API.getImageBlobUrl(r2Key);
@@ -584,7 +580,7 @@ const UI = {
                 if (loadingElement) {
                     loadingElement.style.display = 'none';
                 }
-                this.imageCache.set(r2Key, retryBlobUrl);
+                API.setImageBlobCache(r2Key, retryBlobUrl);
                 return;
             } catch (retryError) {
                 console.error('图片加载重试失败:', retryError);

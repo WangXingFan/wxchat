@@ -160,9 +160,12 @@ const API = {
     async clearAllMessages() {
         try {
             const response = await this.delete(CONFIG.API.ENDPOINTS.MESSAGES);
+            if (response && response.success) {
+                this.clearImageBlobCache();
+            }
             return response;
         } catch (error) {
-            console.error('清空全部消息失败:', error);
+            console.error('Failed to clear all messages:', error);
             throw error;
         }
     },
@@ -270,21 +273,54 @@ const API = {
         }
     },
 
-    // 删除文件
+    // Delete file
     async deleteFile(r2Key) {
         try {
             const response = await this.delete(`${CONFIG.API.ENDPOINTS.FILES}/${r2Key}`);
+            if (response && response.success) {
+                this.revokeImageBlobUrl(r2Key);
+            }
             return response;
         } catch (error) {
-            console.error('文件删除失败:', error);
+            console.error('Failed to delete file:', error);
             throw error;
         }
     },
 
-    // 图片blob URL缓存
+    // Image blob URL cache
     imageBlobCache: new Map(),
+    MAX_IMAGE_BLOB_CACHE: 80,
 
-    // 获取图片blob URL（用于预览）
+    setImageBlobCache(r2Key, blobUrl) {
+        if (this.imageBlobCache.has(r2Key)) {
+            const previousUrl = this.imageBlobCache.get(r2Key);
+            if (previousUrl && previousUrl !== blobUrl) {
+                window.URL.revokeObjectURL(previousUrl);
+            }
+            this.imageBlobCache.delete(r2Key);
+        }
+
+        this.imageBlobCache.set(r2Key, blobUrl);
+
+        while (this.imageBlobCache.size > this.MAX_IMAGE_BLOB_CACHE) {
+            const oldestKey = this.imageBlobCache.keys().next().value;
+            this.revokeImageBlobUrl(oldestKey);
+        }
+    },
+
+    revokeImageBlobUrl(r2Key) {
+        if (!this.imageBlobCache.has(r2Key)) {
+            return;
+        }
+
+        const blobUrl = this.imageBlobCache.get(r2Key);
+        if (blobUrl) {
+            window.URL.revokeObjectURL(blobUrl);
+        }
+        this.imageBlobCache.delete(r2Key);
+    },
+
+    // Get image blob URL for preview
     async getImageBlobUrl(r2Key) {
         if (this.imageBlobCache.has(r2Key)) {
             return this.imageBlobCache.get(r2Key);
@@ -292,10 +328,10 @@ const API = {
 
         try {
             const blobUrl = await this.fetchImageBlobUrl(r2Key);
-            this.imageBlobCache.set(r2Key, blobUrl);
+            this.setImageBlobCache(r2Key, blobUrl);
             return blobUrl;
         } catch (error) {
-            console.error('获取图片blob URL失败:', error);
+            console.error('Failed to get image blob URL:', error);
             throw error;
         }
     },
@@ -311,14 +347,16 @@ const API = {
         });
 
         if (!response.ok) {
-            throw new Error(`获取图片失败: ${response.status}`);
+            throw new Error(`Failed to fetch image: ${response.status}`);
         }
 
         const blob = await response.blob();
         return window.URL.createObjectURL(blob);
     },
+
     clearImageBlobCache() {
-        this.imageBlobCache.clear();
+        const keys = Array.from(this.imageBlobCache.keys());
+        keys.forEach((key) => this.revokeImageBlobUrl(key));
     }
 };
 

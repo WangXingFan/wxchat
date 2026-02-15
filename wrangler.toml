@@ -24,6 +24,7 @@ bucket_name = "wxchat"
 SESSION_EXPIRE_HOURS = "24"
 # 最大登录尝试次数
 MAX_LOGIN_ATTEMPTS = "5"
+LOGIN_LOCK_MINUTES = "15"
 
 # 敏感变量请用 wrangler secret 管理，不要写在这里：
 # wrangler secret put ACCESS_PASSWORD

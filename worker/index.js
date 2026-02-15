@@ -11,30 +11,170 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization'],
 }))
 
-// 鉴权工具函数
+const MAX_PAGE_SIZE = 100
+const DEFAULT_LOGIN_LOCK_MINUTES = 15
+let authTablesReady = null
+
+const toBase64Url = (value) => value.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+const fromBase64Url = (value) => {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
+  const padding = normalized.length % 4 === 0 ? '' : '='.repeat(4 - (normalized.length % 4))
+  return `${normalized}${padding}`
+}
+
+const parsePositiveInt = (value, defaultValue) => {
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultValue
+}
+
+const getPagination = (c) => {
+  const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, parsePositiveInt(c.req.query('limit'), 50)))
+  const offset = Math.max(0, parsePositiveInt(c.req.query('offset'), 0))
+  return { limit, offset }
+}
+
+const getBearerToken = (c) => {
+  const authHeader = c.req.header('Authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null
+  }
+
+  const token = authHeader.substring(7).trim()
+  return token || null
+}
+
+const getClientIp = (c) => {
+  const cfIp = c.req.header('CF-Connecting-IP')
+  if (cfIp) {
+    return cfIp
+  }
+
+  const forwardedFor = c.req.header('X-Forwarded-For')
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim()
+  }
+
+  return 'unknown'
+}
+
+const createJti = () => {
+  const random = crypto.getRandomValues(new Uint8Array(16))
+  return Array.from(random, (item) => item.toString(16).padStart(2, '0')).join('')
+}
+
+const hashToken = async (token) => {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))
+  return Array.from(new Uint8Array(digest), (item) => item.toString(16).padStart(2, '0')).join('')
+}
+
+const ensureAuthTables = async (DB) => {
+  if (authTablesReady) {
+    return authTablesReady
+  }
+
+  authTablesReady = (async () => {
+    await DB.prepare(`
+      CREATE TABLE IF NOT EXISTS login_attempts (
+        client_ip TEXT PRIMARY KEY,
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        last_attempt_ms INTEGER NOT NULL DEFAULT 0,
+        lock_until_ms INTEGER NOT NULL DEFAULT 0
+      )
+    `).run()
+
+    await DB.prepare(`
+      CREATE TABLE IF NOT EXISTS revoked_tokens (
+        token_hash TEXT PRIMARY KEY,
+        token_jti TEXT,
+        expires_at_ms INTEGER NOT NULL,
+        revoked_at_ms INTEGER NOT NULL
+      )
+    `).run()
+
+    await DB.prepare('CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires ON revoked_tokens(expires_at_ms)').run()
+  })().catch((error) => {
+    authTablesReady = null
+    throw error
+  })
+
+  return authTablesReady
+}
+
+const cleanupExpiredRevokedTokens = async (DB, nowMs) => {
+  await DB.prepare('DELETE FROM revoked_tokens WHERE expires_at_ms <= ?').bind(nowMs).run()
+}
+
+const isTokenRevoked = async (DB, token) => {
+  const tokenHash = await hashToken(token)
+  const record = await DB.prepare('SELECT token_hash FROM revoked_tokens WHERE token_hash = ? LIMIT 1').bind(tokenHash).first()
+  return !!record
+}
+
+const revokeToken = async (DB, token, payload) => {
+  const nowMs = Date.now()
+  const expiresAt = Number.isFinite(payload?.exp) ? payload.exp : nowMs
+  const tokenHash = await hashToken(token)
+  const tokenJti = typeof payload?.jti === 'string' ? payload.jti : null
+
+  await DB.prepare(`
+    INSERT OR REPLACE INTO revoked_tokens (token_hash, token_jti, expires_at_ms, revoked_at_ms)
+    VALUES (?, ?, ?, ?)
+  `).bind(tokenHash, tokenJti, expiresAt, nowMs).run()
+}
+
+const getLoginAttempt = async (DB, clientIp) => {
+  return DB.prepare(`
+    SELECT attempt_count, last_attempt_ms, lock_until_ms
+    FROM login_attempts
+    WHERE client_ip = ?
+  `).bind(clientIp).first()
+}
+
+const recordLoginFailure = async (DB, clientIp, maxAttempts, lockWindowMs, nowMs) => {
+  const current = await getLoginAttempt(DB, clientIp)
+  const withinWindow = current && nowMs - (current.last_attempt_ms || 0) <= lockWindowMs
+  const nextCount = withinWindow ? (current.attempt_count || 0) + 1 : 1
+  const lockUntilMs = nextCount >= maxAttempts ? nowMs + lockWindowMs : 0
+
+  await DB.prepare(`
+    INSERT OR REPLACE INTO login_attempts (client_ip, attempt_count, last_attempt_ms, lock_until_ms)
+    VALUES (?, ?, ?, ?)
+  `).bind(clientIp, nextCount, nowMs, lockUntilMs).run()
+
+  return { attempts: nextCount, lockUntilMs }
+}
+
+const clearLoginAttempt = async (DB, clientIp) => {
+  await DB.prepare('DELETE FROM login_attempts WHERE client_ip = ?').bind(clientIp).run()
+}
+
+// auth helpers
 const AuthUtils = {
-  // 生成简单的JWT token
+  // generate JWT token
   async generateToken(payload, secret) {
     const header = { alg: 'HS256', typ: 'JWT' }
-    const encodedHeader = btoa(JSON.stringify(header))
-    const encodedPayload = btoa(JSON.stringify(payload))
+    const encodedHeader = toBase64Url(btoa(JSON.stringify(header)))
+    const encodedPayload = toBase64Url(btoa(JSON.stringify(payload)))
     const signature = await this.sign(`${encodedHeader}.${encodedPayload}`, secret)
     return `${encodedHeader}.${encodedPayload}.${signature}`
   },
 
-  // 验证JWT token
+  // verify JWT token
   async verifyToken(token, secret) {
     try {
       const [header, payload, signature] = token.split('.')
-      const expectedSignature = await this.sign(`${header}.${payload}`, secret)
-
-      if (signature !== expectedSignature) {
+      if (!header || !payload || !signature) {
         return null
       }
 
-      const decodedPayload = JSON.parse(atob(payload))
+      const expectedSignature = await this.sign(`${header}.${payload}`, secret)
 
-      // 检查过期时间
+      if (toBase64Url(signature) !== expectedSignature) {
+        return null
+      }
+
+      const decodedPayload = JSON.parse(atob(fromBase64Url(payload)))
+
       if (decodedPayload.exp && Date.now() > decodedPayload.exp) {
         return null
       }
@@ -45,7 +185,7 @@ const AuthUtils = {
     }
   },
 
-  // 生成签名
+  // sign token
   async sign(data, secret) {
     const encoder = new TextEncoder()
     const key = await crypto.subtle.importKey(
@@ -56,7 +196,7 @@ const AuthUtils = {
       ['sign']
     )
     const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data))
-    return btoa(String.fromCharCode(...new Uint8Array(signature)))
+    return toBase64Url(btoa(String.fromCharCode(...new Uint8Array(signature))))
   }
 }
 
@@ -119,28 +259,14 @@ const isEtagMatched = (ifNoneMatch, etag) => {
   return candidates.includes(weakEtag)
 }
 
-// 鉴权中间件
+// auth middleware
 const authMiddleware = async (c, next) => {
-  // 跳过登录和静态资源
+  const token = getBearerToken(c)
   const path = c.req.path
-  if (path.startsWith('/api/auth/') || path.startsWith('/login.html') ||
-      path.includes('.css') || path.includes('.js') || path.includes('.ico') ||
-      path.includes('favicon')) {
-    return next()
-  }
-
-  // 获取token
-  let token = null
-  const authHeader = c.req.header('Authorization')
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7)
-  } else {
-    token = c.req.query('token')
-  }
 
   if (!token) {
     if (path.startsWith('/api/')) {
-      return c.json({ success: false, message: '未授权访问' }, 401)
+      return c.json({ success: false, message: 'Unauthorized' }, 401)
     }
     return c.redirect('/login.html')
   }
@@ -149,15 +275,20 @@ const authMiddleware = async (c, next) => {
 
   if (!payload) {
     if (path.startsWith('/api/')) {
-      return c.json({ success: false, message: 'Token无效或已过期' }, 401)
+      return c.json({ success: false, message: 'Token invalid or expired' }, 401)
     }
     return c.redirect('/login.html')
   }
 
+  await ensureAuthTables(c.env.DB)
+  if (await isTokenRevoked(c.env.DB, token)) {
+    return c.json({ success: false, message: 'Token revoked, please login again' }, 401)
+  }
+
   c.set('user', payload)
+  c.set('token', token)
   return next()
 }
-
 // API路由
 const api = new Hono()
 
@@ -167,23 +298,60 @@ const authApi = new Hono()
 // 登录接口
 authApi.post('/login', async (c) => {
   try {
+    const { DB } = c.env
     const { password } = await c.req.json()
 
     if (!password) {
-      return c.json({ success: false, message: '密码不能为空' }, 400)
+      return c.json({ success: false, message: 'Password is required' }, 400)
+    }
+
+    await ensureAuthTables(DB)
+
+    const nowMs = Date.now()
+    const maxLoginAttempts = parsePositiveInt(c.env.MAX_LOGIN_ATTEMPTS, 5)
+    const lockMinutes = parsePositiveInt(c.env.LOGIN_LOCK_MINUTES, DEFAULT_LOGIN_LOCK_MINUTES)
+    const lockWindowMs = lockMinutes * 60 * 1000
+    const clientIp = getClientIp(c)
+
+    await cleanupExpiredRevokedTokens(DB, nowMs)
+
+    const attemptInfo = await getLoginAttempt(DB, clientIp)
+    if (attemptInfo?.lock_until_ms && attemptInfo.lock_until_ms > nowMs) {
+      const retryAfterSeconds = Math.ceil((attemptInfo.lock_until_ms - nowMs) / 1000)
+      return c.json({
+        success: false,
+        message: `Too many login attempts. Try again in ${Math.ceil(retryAfterSeconds / 60)} minutes`,
+        retryAfter: retryAfterSeconds
+      }, 429)
     }
 
     const expectedPassword = c.env.ACCESS_PASSWORD
 
     if (password !== expectedPassword) {
-      return c.json({ success: false, message: '密码错误' }, 401)
+      const { attempts, lockUntilMs } = await recordLoginFailure(DB, clientIp, maxLoginAttempts, lockWindowMs, nowMs)
+      if (lockUntilMs > nowMs) {
+        return c.json({
+          success: false,
+          message: `Too many login attempts. Try again in ${lockMinutes} minutes`,
+          retryAfter: Math.ceil((lockUntilMs - nowMs) / 1000)
+        }, 429)
+      }
+
+      const remainingAttempts = Math.max(0, maxLoginAttempts - attempts)
+      const message = remainingAttempts > 0
+        ? `Invalid password. ${remainingAttempts} attempts remaining`
+        : `Too many login attempts. Try again in ${lockMinutes} minutes`
+      return c.json({ success: false, message }, 401)
     }
 
-    const expireHours = parseInt(c.env.SESSION_EXPIRE_HOURS || '24')
+    await clearLoginAttempt(DB, clientIp)
+
+    const expireHours = parsePositiveInt(c.env.SESSION_EXPIRE_HOURS, 24)
     const payload = {
-      iat: Date.now(),
-      exp: Date.now() + (expireHours * 60 * 60 * 1000),
-      type: 'access'
+      iat: nowMs,
+      exp: nowMs + (expireHours * 60 * 60 * 1000),
+      type: 'access',
+      jti: createJti()
     }
 
     const token = await AuthUtils.generateToken(payload, c.env.JWT_SECRET)
@@ -194,44 +362,68 @@ authApi.post('/login', async (c) => {
       expiresIn: expireHours * 60 * 60
     })
   } catch (error) {
-    console.error('登录错误:', error)
-    return c.json({ success: false, message: '服务器错误' }, 500)
+    console.error('Login error:', error)
+    return c.json({ success: false, message: 'Server error' }, 500)
   }
 })
 
 // 验证token接口
 authApi.get('/verify', async (c) => {
   try {
-    const authHeader = c.req.header('Authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return c.json({ valid: false, message: '缺少认证信息' }, 401)
+    const token = getBearerToken(c)
+    if (!token) {
+      return c.json({ valid: false, message: 'Missing authentication' }, 401)
     }
 
-    const token = authHeader.substring(7)
     const payload = await AuthUtils.verifyToken(token, c.env.JWT_SECRET)
 
     if (!payload) {
-      return c.json({ valid: false, message: 'Token无效或已过期' }, 401)
+      return c.json({ valid: false, message: 'Token invalid or expired' }, 401)
+    }
+
+    await ensureAuthTables(c.env.DB)
+    await cleanupExpiredRevokedTokens(c.env.DB, Date.now())
+
+    if (await isTokenRevoked(c.env.DB, token)) {
+      return c.json({ valid: false, message: 'Token revoked, please login again' }, 401)
     }
 
     return c.json({ valid: true, payload })
   } catch (error) {
-    console.error('验证token错误:', error)
-    return c.json({ valid: false, message: '服务器错误' }, 500)
+    console.error('Token verification error:', error)
+    return c.json({ valid: false, message: 'Server error' }, 500)
   }
 })
 
 // 登出接口
 authApi.post('/logout', async (c) => {
-  return c.json({ success: true, message: '已登出' })
+  try {
+    const token = getBearerToken(c)
+    if (!token) {
+      return c.json({ success: false, message: 'Missing authentication' }, 401)
+    }
+
+    const payload = await AuthUtils.verifyToken(token, c.env.JWT_SECRET)
+    if (!payload) {
+      return c.json({ success: false, message: 'Token invalid or expired' }, 401)
+    }
+
+    await ensureAuthTables(c.env.DB)
+    await cleanupExpiredRevokedTokens(c.env.DB, Date.now())
+    await revokeToken(c.env.DB, token, payload)
+
+    return c.json({ success: true, message: 'Logged out' })
+  } catch (error) {
+    console.error('Logout error:', error)
+    return c.json({ success: false, message: 'Server error' }, 500)
+  }
 })
 
 // 获取文件列表
 api.get('/files', async (c) => {
   try {
     const { DB } = c.env
-    const limit = parseInt(c.req.query('limit') || '50')
-    const offset = parseInt(c.req.query('offset') || '0')
+    const { limit, offset } = getPagination(c)
 
     const stmt = DB.prepare(`
       SELECT
@@ -431,8 +623,7 @@ api.get('/files/download/:r2Key', async (c) => {
 api.get('/messages', async (c) => {
   try {
     const { DB } = c.env
-    const limit = parseInt(c.req.query('limit') || '50')
-    const offset = parseInt(c.req.query('offset') || '0')
+    const { limit, offset } = getPagination(c)
 
     // 查询消息，关联文件信息
     const stmt = DB.prepare(`
